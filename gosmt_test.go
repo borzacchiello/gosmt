@@ -1,6 +1,7 @@
 package gosmt
 
 import (
+	"fmt"
 	"testing"
 )
 
@@ -52,5 +53,56 @@ func TestWrongSizes(t *testing.T) {
 	err := MakeBV(1, 3).Add(MakeBV(1, 4))
 	if err == nil {
 		t.Errorf("should return an error")
+	}
+}
+
+func TestTruncateConcat(t *testing.T) {
+	bv := MakeBV(42, 8)
+	bv.Concat(MakeBV(43, 8))
+	bv.Concat(MakeBV(44, 8))
+	bv.Concat(MakeBV(45, 8))
+
+	fmt.Printf("bv: %s\n", bv)
+
+	b := bv.Copy()
+	b.Truncate(7, 0)
+	if b.AsULong() != 45 {
+		t.Errorf("incorrect BV")
+	}
+
+	b = bv.Copy()
+	b.Truncate(15, 8)
+	if b.AsULong() != 44 {
+		t.Errorf("incorrect BV")
+	}
+}
+
+func TestSlice(t *testing.T) {
+	bv := MakeBV(0xdeadbeef, 32)
+
+	if bv.Slice(7, 0).AsULong() != 0xef {
+		t.Errorf("incorrect BV")
+	}
+	if bv.Slice(15, 8).AsULong() != 0xbe {
+		t.Errorf("incorrect BV")
+	}
+	if bv.Slice(23, 16).AsULong() != 0xad {
+		t.Errorf("incorrect BV")
+	}
+	if bv.Slice(32, 24).AsULong() != 0xde {
+		t.Errorf("incorrect BV")
+	}
+}
+
+func TestNeg(t *testing.T) {
+	bv := MakeBV(-42, 18)
+
+	bv.Neg()
+	if bv.AsLong() != 42 {
+		t.Errorf("incorrect BV")
+	}
+	bv.Neg()
+	if bv.AsLong() != -42 {
+		t.Errorf("incorrect BV")
 	}
 }
