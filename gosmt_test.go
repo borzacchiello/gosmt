@@ -94,6 +94,22 @@ func TestSlice(t *testing.T) {
 	}
 }
 
+func TestAShr(t *testing.T) {
+	bv := MakeBV(-1, 32)
+	bv.AShr(13)
+
+	if bv.AsLong() != -1 {
+		t.Errorf("incorrect BV")
+	}
+
+	bv = MakeBV(-2, 32)
+	bv.AShr(1)
+
+	if bv.AsLong() != -1 {
+		t.Errorf("incorrect BV")
+	}
+}
+
 func TestNeg(t *testing.T) {
 	bv := MakeBV(-42, 18)
 
