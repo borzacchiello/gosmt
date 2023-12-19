@@ -153,6 +153,15 @@ func (bv *BVV) Or(o *BVV) error {
 	return nil
 }
 
+func (bv *BVV) Xor(o *BVV) error {
+	if bv.Size != o.Size {
+		return fmt.Errorf("different sizes %d and %d", bv.Size, o.Size)
+	}
+
+	bv.value = bv.value.Xor(bv.value, o.value)
+	return nil
+}
+
 func (bv *BVV) AShr(n uint) {
 	if n >= bv.Size {
 		bv.value = big.NewInt(0)
@@ -209,9 +218,6 @@ func (bv *BVV) Concat(o *BVV) {
 }
 
 func (bv *BVV) Truncate(high uint, low uint) error {
-	if low < 0 || high < 0 {
-		return fmt.Errorf("high or low cannot be less than zero")
-	}
 	if high < low {
 		return fmt.Errorf("high is lower than low")
 	}
@@ -228,9 +234,6 @@ func (bv *BVV) Truncate(high uint, low uint) error {
 }
 
 func (bv *BVV) Slice(high uint, low uint) *BVV {
-	if low < 0 || high < 0 {
-		return nil
-	}
 	if high < low {
 		return nil
 	}
@@ -264,4 +267,97 @@ func (bv *BVV) SExt(bits uint) {
 
 	bv.Size += bits
 	bv.mask = makeMask(bv.Size)
+}
+
+func (bv *BVV) Eq(o *BVV) (BoolV, error) {
+	if bv.Size != o.Size {
+		return BoolTrue(), fmt.Errorf("different sizes %d and %d", bv.Size, o.Size)
+	}
+
+	if bv.value == o.value {
+		return BoolTrue(), nil
+	}
+	return BoolFalse(), nil
+}
+
+func (bv *BVV) NEq(o *BVV) (BoolV, error) {
+	if bv.Size != o.Size {
+		return BoolTrue(), fmt.Errorf("different sizes %d and %d", bv.Size, o.Size)
+	}
+
+	if bv.value != o.value {
+		return BoolTrue(), nil
+	}
+	return BoolFalse(), nil
+}
+
+func (bv *BVV) UGt(o *BVV) (BoolV, error) {
+	if bv.Size != o.Size {
+		return BoolTrue(), fmt.Errorf("different sizes %d and %d", bv.Size, o.Size)
+	}
+
+	if bv.value.CmpAbs(o.value) > 0 {
+		return BoolTrue(), nil
+	}
+	return BoolFalse(), nil
+}
+
+func (bv *BVV) UGe(o *BVV) (BoolV, error) {
+	v, err := bv.Eq(o)
+	if err != nil || v.Value {
+		return BoolTrue(), err
+	}
+	return bv.UGt(o)
+}
+
+func (bv *BVV) Ult(o *BVV) (BoolV, error) {
+	v, err := bv.UGe(o)
+	return v.Not(), err
+}
+
+func (bv *BVV) Ule(o *BVV) (BoolV, error) {
+	v, err := bv.UGt(o)
+	return v.Not(), err
+}
+
+func (bv *BVV) SGt(o *BVV) (BoolV, error) {
+	if bv.Size != o.Size {
+		return BoolTrue(), fmt.Errorf("different sizes %d and %d", bv.Size, o.Size)
+	}
+
+	if bv.IsNegative() && !o.IsNegative() {
+		return BoolFalse(), nil
+	}
+	if !bv.IsNegative() && o.IsNegative() {
+		return BoolTrue(), nil
+	}
+	if bv.IsNegative() && o.IsNegative() {
+		if bv.value.CmpAbs(o.value) > 0 {
+			return BoolTrue(), nil
+		}
+		return BoolFalse(), nil
+	}
+
+	if bv.value.CmpAbs(o.value) > 0 {
+		return BoolTrue(), nil
+	}
+	return BoolFalse(), nil
+}
+
+func (bv *BVV) SGe(o *BVV) (BoolV, error) {
+	v, err := bv.Eq(o)
+	if err != nil || v.Value {
+		return BoolTrue(), err
+	}
+	return bv.SGt(o)
+}
+
+func (bv *BVV) SLt(o *BVV) (BoolV, error) {
+	v, err := bv.SGe(o)
+	return v.Not(), err
+}
+
+func (bv *BVV) SLe(o *BVV) (BoolV, error) {
+	v, err := bv.SGt(o)
+	return v.Not(), err
 }

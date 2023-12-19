@@ -106,3 +106,34 @@ func TestNeg(t *testing.T) {
 		t.Errorf("incorrect BV")
 	}
 }
+
+func TestCmp(t *testing.T) {
+	bv1 := MakeBV(-10, 32)
+	bv2 := MakeBV(-11, 32)
+	bv3 := MakeBV(1, 32)
+
+	v, err := bv1.SGt(bv2)
+	if err != nil || !v.Value {
+		t.Errorf("[%s s> %s = %s] incorrect SGt result", bv1, bv2, v)
+	}
+
+	v, err = bv1.SGe(bv2)
+	if err != nil || !v.Value {
+		t.Errorf("[%s s>= %s = %s] incorrect SGe result", bv1, bv2, v)
+	}
+
+	v, err = bv1.SLt(bv2)
+	if err != nil || v.Value {
+		t.Errorf("[%s s< %s = %s] incorrect SLt result", bv1, bv2, v)
+	}
+
+	v, err = bv1.SLe(bv2)
+	if err != nil || v.Value {
+		t.Errorf("[%s s<= %s = %s] incorrect SLe result", bv1, bv2, v)
+	}
+
+	v, err = bv1.Ult(bv3)
+	if err != nil || v.Value {
+		t.Errorf("[%s u< %s = %s] incorrect Ult result", bv1, bv2, v)
+	}
+}
