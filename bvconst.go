@@ -8,7 +8,7 @@ import (
 var zero = big.NewInt(0)
 var one = big.NewInt(1)
 
-type BVV struct {
+type BVConst struct {
 	Size  uint
 	mask  *big.Int
 	value *big.Int
@@ -27,7 +27,7 @@ func makeMask(size uint) *big.Int {
 	return v
 }
 
-func MakeBV(value int64, size uint) *BVV {
+func MakeBVConst(value int64, size uint) *BVConst {
 	if size == 0 {
 		return nil
 	}
@@ -40,27 +40,27 @@ func MakeBV(value int64, size uint) *BVV {
 		v = v.Sub(mask, v)
 		v = v.And(v, mask)
 	}
-	return &BVV{Size: size, mask: mask, value: v}
+	return &BVConst{Size: size, mask: mask, value: v}
 }
 
-func (bv *BVV) IsNegative() bool {
+func (bv *BVConst) IsNegative() bool {
 	return bv.value.Bit(int(bv.Size)-1) == 1
 }
 
-func (bv *BVV) Copy() *BVV {
+func (bv *BVConst) Copy() *BVConst {
 	newVal := big.NewInt(0)
 	newMask := big.NewInt(0)
 
 	newVal = newVal.Add(newVal, bv.value)
 	newMask = newMask.Add(newMask, bv.mask)
-	return &BVV{Size: bv.Size, mask: newMask, value: newVal}
+	return &BVConst{Size: bv.Size, mask: newMask, value: newVal}
 }
 
-func (bv *BVV) String() string {
+func (bv *BVConst) String() string {
 	return fmt.Sprintf("<BV%d 0x%x>", bv.Size, bv.value)
 }
 
-func (bv *BVV) FitInLong() bool {
+func (bv *BVConst) FitInLong() bool {
 	maxulong := big.NewInt(2)
 	maxulong.Lsh(maxulong, 64)
 	maxulong.Sub(maxulong, one)
@@ -68,34 +68,34 @@ func (bv *BVV) FitInLong() bool {
 	return bv.value.Cmp(maxulong) <= 0
 }
 
-func (bv *BVV) AsULong() uint64 {
+func (bv *BVConst) AsULong() uint64 {
 	// if it does not `FitInLong`, result is undefined
 	return bv.value.Uint64()
 }
 
-func (bv *BVV) AsLong() int64 {
+func (bv *BVConst) AsLong() int64 {
 	// if it does not `FitInLong`, result is undefined
 	if !bv.IsNegative() {
 		return bv.value.Int64()
 	}
 	bvCpy := bv.Copy()
 	bvCpy.Not()
-	bvCpy.Add(MakeBV(1, bv.Size))
+	bvCpy.Add(MakeBVConst(1, bv.Size))
 	return -int64(bvCpy.AsULong())
 }
 
-func (bv *BVV) Not() {
+func (bv *BVConst) Not() {
 	bv.value.Not(bv.value)
 	bv.value.And(bv.value, bv.mask)
 }
 
-func (bv *BVV) Neg() {
+func (bv *BVConst) Neg() {
 	bv.value.Sub(bv.value, one)
 	bv.value.Sub(bv.mask, bv.value)
 	bv.value.And(bv.value, bv.mask)
 }
 
-func (bv *BVV) Add(o *BVV) error {
+func (bv *BVConst) Add(o *BVConst) error {
 	if bv.Size != o.Size {
 		return fmt.Errorf("different sizes %d and %d", bv.Size, o.Size)
 	}
@@ -105,7 +105,7 @@ func (bv *BVV) Add(o *BVV) error {
 	return nil
 }
 
-func (bv *BVV) Sub(o *BVV) error {
+func (bv *BVConst) Sub(o *BVConst) error {
 	if bv.Size != o.Size {
 		return fmt.Errorf("different sizes %d and %d", bv.Size, o.Size)
 	}
@@ -115,7 +115,7 @@ func (bv *BVV) Sub(o *BVV) error {
 	return nil
 }
 
-func (bv *BVV) Mul(o *BVV) error {
+func (bv *BVConst) Mul(o *BVConst) error {
 	if bv.Size != o.Size {
 		return fmt.Errorf("different sizes %d and %d", bv.Size, o.Size)
 	}
@@ -125,7 +125,7 @@ func (bv *BVV) Mul(o *BVV) error {
 	return nil
 }
 
-func (bv *BVV) Div(o *BVV) error {
+func (bv *BVConst) Div(o *BVConst) error {
 	if bv.Size != o.Size {
 		return fmt.Errorf("different sizes %d and %d", bv.Size, o.Size)
 	}
@@ -135,7 +135,7 @@ func (bv *BVV) Div(o *BVV) error {
 	return nil
 }
 
-func (bv *BVV) And(o *BVV) error {
+func (bv *BVConst) And(o *BVConst) error {
 	if bv.Size != o.Size {
 		return fmt.Errorf("different sizes %d and %d", bv.Size, o.Size)
 	}
@@ -144,7 +144,7 @@ func (bv *BVV) And(o *BVV) error {
 	return nil
 }
 
-func (bv *BVV) Or(o *BVV) error {
+func (bv *BVConst) Or(o *BVConst) error {
 	if bv.Size != o.Size {
 		return fmt.Errorf("different sizes %d and %d", bv.Size, o.Size)
 	}
@@ -153,7 +153,7 @@ func (bv *BVV) Or(o *BVV) error {
 	return nil
 }
 
-func (bv *BVV) Xor(o *BVV) error {
+func (bv *BVConst) Xor(o *BVConst) error {
 	if bv.Size != o.Size {
 		return fmt.Errorf("different sizes %d and %d", bv.Size, o.Size)
 	}
@@ -162,7 +162,7 @@ func (bv *BVV) Xor(o *BVV) error {
 	return nil
 }
 
-func (bv *BVV) AShr(n uint) {
+func (bv *BVConst) AShr(n uint) {
 	if n >= bv.Size {
 		bv.value = big.NewInt(0)
 		return
@@ -184,7 +184,7 @@ func (bv *BVV) AShr(n uint) {
 	}
 }
 
-func (bv *BVV) LShr(n uint) {
+func (bv *BVConst) LShr(n uint) {
 	if n >= bv.Size {
 		bv.value = big.NewInt(0)
 		return
@@ -196,7 +196,7 @@ func (bv *BVV) LShr(n uint) {
 	bv.value = bv.value.Rsh(bv.value, n)
 }
 
-func (bv *BVV) Shl(n uint) {
+func (bv *BVConst) Shl(n uint) {
 	if n >= bv.Size {
 		bv.value = big.NewInt(0)
 		return
@@ -208,7 +208,7 @@ func (bv *BVV) Shl(n uint) {
 	bv.value = bv.value.Lsh(bv.value, n)
 }
 
-func (bv *BVV) Concat(o *BVV) {
+func (bv *BVConst) Concat(o *BVConst) {
 	oCpy := o.Copy()
 	oCpy.ZExt(bv.Size)
 
@@ -217,7 +217,7 @@ func (bv *BVV) Concat(o *BVV) {
 	bv.Or(oCpy)
 }
 
-func (bv *BVV) Truncate(high uint, low uint) error {
+func (bv *BVConst) Truncate(high uint, low uint) error {
 	if high < low {
 		return fmt.Errorf("high is lower than low")
 	}
@@ -233,7 +233,7 @@ func (bv *BVV) Truncate(high uint, low uint) error {
 	return nil
 }
 
-func (bv *BVV) Slice(high uint, low uint) *BVV {
+func (bv *BVConst) Slice(high uint, low uint) *BVConst {
 	if high < low {
 		return nil
 	}
@@ -241,19 +241,19 @@ func (bv *BVV) Slice(high uint, low uint) *BVV {
 		return nil
 	}
 
-	res := MakeBV(0, high-low+1)
+	res := MakeBVConst(0, high-low+1)
 	res.value.Or(res.value, bv.value)
 	res.value.Rsh(res.value, low)
 	res.value.And(res.value, res.mask)
 	return res
 }
 
-func (bv *BVV) ZExt(bits uint) {
+func (bv *BVConst) ZExt(bits uint) {
 	bv.Size += bits
 	bv.mask = makeMask(bv.Size)
 }
 
-func (bv *BVV) SExt(bits uint) {
+func (bv *BVConst) SExt(bits uint) {
 	if !bv.IsNegative() {
 		bv.ZExt(bits)
 		return
@@ -269,7 +269,7 @@ func (bv *BVV) SExt(bits uint) {
 	bv.mask = makeMask(bv.Size)
 }
 
-func (bv *BVV) Eq(o *BVV) (BoolV, error) {
+func (bv *BVConst) Eq(o *BVConst) (BoolConst, error) {
 	if bv.Size != o.Size {
 		return BoolTrue(), fmt.Errorf("different sizes %d and %d", bv.Size, o.Size)
 	}
@@ -280,7 +280,7 @@ func (bv *BVV) Eq(o *BVV) (BoolV, error) {
 	return BoolFalse(), nil
 }
 
-func (bv *BVV) NEq(o *BVV) (BoolV, error) {
+func (bv *BVConst) NEq(o *BVConst) (BoolConst, error) {
 	if bv.Size != o.Size {
 		return BoolTrue(), fmt.Errorf("different sizes %d and %d", bv.Size, o.Size)
 	}
@@ -291,7 +291,7 @@ func (bv *BVV) NEq(o *BVV) (BoolV, error) {
 	return BoolFalse(), nil
 }
 
-func (bv *BVV) UGt(o *BVV) (BoolV, error) {
+func (bv *BVConst) UGt(o *BVConst) (BoolConst, error) {
 	if bv.Size != o.Size {
 		return BoolTrue(), fmt.Errorf("different sizes %d and %d", bv.Size, o.Size)
 	}
@@ -302,7 +302,7 @@ func (bv *BVV) UGt(o *BVV) (BoolV, error) {
 	return BoolFalse(), nil
 }
 
-func (bv *BVV) UGe(o *BVV) (BoolV, error) {
+func (bv *BVConst) UGe(o *BVConst) (BoolConst, error) {
 	v, err := bv.Eq(o)
 	if err != nil || v.Value {
 		return BoolTrue(), err
@@ -310,17 +310,17 @@ func (bv *BVV) UGe(o *BVV) (BoolV, error) {
 	return bv.UGt(o)
 }
 
-func (bv *BVV) Ult(o *BVV) (BoolV, error) {
+func (bv *BVConst) Ult(o *BVConst) (BoolConst, error) {
 	v, err := bv.UGe(o)
 	return v.Not(), err
 }
 
-func (bv *BVV) Ule(o *BVV) (BoolV, error) {
+func (bv *BVConst) Ule(o *BVConst) (BoolConst, error) {
 	v, err := bv.UGt(o)
 	return v.Not(), err
 }
 
-func (bv *BVV) SGt(o *BVV) (BoolV, error) {
+func (bv *BVConst) SGt(o *BVConst) (BoolConst, error) {
 	if bv.Size != o.Size {
 		return BoolTrue(), fmt.Errorf("different sizes %d and %d", bv.Size, o.Size)
 	}
@@ -344,7 +344,7 @@ func (bv *BVV) SGt(o *BVV) (BoolV, error) {
 	return BoolFalse(), nil
 }
 
-func (bv *BVV) SGe(o *BVV) (BoolV, error) {
+func (bv *BVConst) SGe(o *BVConst) (BoolConst, error) {
 	v, err := bv.Eq(o)
 	if err != nil || v.Value {
 		return BoolTrue(), err
@@ -352,12 +352,12 @@ func (bv *BVV) SGe(o *BVV) (BoolV, error) {
 	return bv.SGt(o)
 }
 
-func (bv *BVV) SLt(o *BVV) (BoolV, error) {
+func (bv *BVConst) SLt(o *BVConst) (BoolConst, error) {
 	v, err := bv.SGe(o)
 	return v.Not(), err
 }
 
-func (bv *BVV) SLe(o *BVV) (BoolV, error) {
+func (bv *BVConst) SLe(o *BVConst) (BoolConst, error) {
 	v, err := bv.SGt(o)
 	return v.Not(), err
 }
