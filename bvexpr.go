@@ -18,11 +18,11 @@ const (
 	TY_SEXT    = 6
 	TY_ITE     = 7
 
-	TY_SHL  = 8
-	TY_LSHR = 9
-	TY_ASHR = 10
-	TY_NEG  = 11
-	TY_NOT  = 12
+	TY_NOT  = 8
+	TY_NEG  = 9
+	TY_SHL  = 10
+	TY_LSHR = 11
+	TY_ASHR = 12
 	TY_AND  = 13
 	TY_OR   = 14
 	TY_XOR  = 15
@@ -131,6 +131,64 @@ func (bvv *BVV) rawPtr() uintptr {
 }
 
 /*
+ *  TY_BOOL_CONST
+ */
+
+type BoolVal struct {
+	Value BoolConst
+}
+
+func mkBoolConst(value bool) *BoolVal {
+	if value {
+		return &BoolVal{Value: BoolTrue()}
+	}
+	return &BoolVal{Value: BoolFalse()}
+}
+
+func (b *BoolVal) IsTrue() bool {
+	return b.Value.Value
+}
+
+func (b *BoolVal) IsFalse() bool {
+	return !b.Value.Value
+}
+
+func (b *BoolVal) String() string {
+	return b.Value.String()
+}
+
+func (b *BoolVal) Children() []Expr {
+	return make([]Expr, 0)
+}
+
+func (b *BoolVal) Kind() int {
+	return TY_BOOL_CONST
+}
+
+func (b *BoolVal) hash() uint64 {
+	if b.Value.Value {
+		return 1
+	}
+	return 0
+}
+
+func (b *BoolVal) DeepEq(other Expr) bool {
+	if other.Kind() != TY_BOOL_CONST {
+		return false
+	}
+	ob := other.(*BoolVal)
+	return ob.Value.Value == b.Value.Value
+}
+
+func (b *BoolVal) isLeaf() bool {
+	return true
+}
+
+func (b *BoolVal) rawPtr() uintptr {
+	return uintptr(unsafe.Pointer(b))
+}
+
+/*
  *  TY_SYM
  */
 
@@ -188,13 +246,13 @@ func (bvs *BVS) rawPtr() uintptr {
  * TY_AND, TY_OR, TY_XOR, TY_ADD, TY_MUL, TY_SDIV, TY_UDIV, TY_SREM, TY_UREM, TY_SHL, TY_LSHR, TY_ASHR
  */
 
-type BVExprArithmetic struct {
+type BVExprBinArithmetic struct {
 	kind     int
 	symbol   string
 	children []BVExpr
 }
 
-func mkBVArithmeticExpr(children []BVExpr, kind int, symbol string) (*BVExprArithmetic, error) {
+func mkBVArithmeticExpr(children []BVExpr, kind int, symbol string) (*BVExprBinArithmetic, error) {
 	if len(children) < 2 {
 		return nil, fmt.Errorf("mkBVArithmeticExpr(): not enough children")
 	}
@@ -203,10 +261,10 @@ func mkBVArithmeticExpr(children []BVExpr, kind int, symbol string) (*BVExprArit
 			return nil, fmt.Errorf("mkBVArithmeticExpr(): invalid sizes")
 		}
 	}
-	return &BVExprArithmetic{kind: kind, symbol: symbol, children: children}, nil
+	return &BVExprBinArithmetic{kind: kind, symbol: symbol, children: children}, nil
 }
 
-func (e *BVExprArithmetic) String() string {
+func (e *BVExprBinArithmetic) String() string {
 	b := strings.Builder{}
 	if e.children[0].isLeaf() {
 		b.WriteString(e.children[0].String())
@@ -223,11 +281,11 @@ func (e *BVExprArithmetic) String() string {
 	return b.String()
 }
 
-func (e *BVExprArithmetic) Size() uint {
+func (e *BVExprBinArithmetic) Size() uint {
 	return e.children[0].Size()
 }
 
-func (e *BVExprArithmetic) Children() []Expr {
+func (e *BVExprBinArithmetic) Children() []Expr {
 	res := make([]Expr, 0)
 	for i := 0; i < len(e.children); i++ {
 		res = append(res, e.children[i])
@@ -235,11 +293,11 @@ func (e *BVExprArithmetic) Children() []Expr {
 	return res
 }
 
-func (e *BVExprArithmetic) Kind() int {
+func (e *BVExprBinArithmetic) Kind() int {
 	return e.kind
 }
 
-func (e *BVExprArithmetic) hash() uint64 {
+func (e *BVExprBinArithmetic) hash() uint64 {
 	h := xxhash.New()
 	h.Write([]byte(e.symbol))
 	for i := 0; i < len(e.children); i++ {
@@ -250,11 +308,11 @@ func (e *BVExprArithmetic) hash() uint64 {
 	return h.Sum64()
 }
 
-func (e *BVExprArithmetic) DeepEq(other Expr) bool {
-	if other.Kind() != TY_ADD {
+func (e *BVExprBinArithmetic) DeepEq(other Expr) bool {
+	if other.Kind() != e.kind {
 		return false
 	}
-	oe := other.(*BVExprArithmetic)
+	oe := other.(*BVExprBinArithmetic)
 	if len(oe.children) != len(e.children) {
 		return false
 	}
@@ -266,70 +324,140 @@ func (e *BVExprArithmetic) DeepEq(other Expr) bool {
 	return true
 }
 
-func (e *BVExprArithmetic) isLeaf() bool {
+func (e *BVExprBinArithmetic) isLeaf() bool {
 	return false
 }
 
-func (e *BVExprArithmetic) rawPtr() uintptr {
+func (e *BVExprBinArithmetic) rawPtr() uintptr {
 	return uintptr(unsafe.Pointer(e))
 }
 
-func mkBVExprAnd(children []BVExpr) (*BVExprArithmetic, error) {
+func mkBVExprAnd(children []BVExpr) (*BVExprBinArithmetic, error) {
 	return mkBVArithmeticExpr(children, TY_AND, "&")
 }
-func mkBVExprOr(children []BVExpr) (*BVExprArithmetic, error) {
+func mkBVExprOr(children []BVExpr) (*BVExprBinArithmetic, error) {
 	return mkBVArithmeticExpr(children, TY_OR, "|")
 }
-func mkBVExprXor(children []BVExpr) (*BVExprArithmetic, error) {
+func mkBVExprXor(children []BVExpr) (*BVExprBinArithmetic, error) {
 	return mkBVArithmeticExpr(children, TY_XOR, "^")
 }
-func mkBVExprAdd(children []BVExpr) (*BVExprArithmetic, error) {
+func mkBVExprAdd(children []BVExpr) (*BVExprBinArithmetic, error) {
 	return mkBVArithmeticExpr(children, TY_ADD, "+")
 }
-func mkBVExprMul(children []BVExpr) (*BVExprArithmetic, error) {
+func mkBVExprMul(children []BVExpr) (*BVExprBinArithmetic, error) {
 	return mkBVArithmeticExpr(children, TY_MUL, "*")
 }
-func mkBVExprSdiv(lhs, rhs BVExpr) (*BVExprArithmetic, error) {
+func mkBVExprSdiv(lhs, rhs BVExpr) (*BVExprBinArithmetic, error) {
 	children := make([]BVExpr, 0)
 	children = append(children, lhs)
 	children = append(children, rhs)
 	return mkBVArithmeticExpr(children, TY_SDIV, "s/")
 }
-func mkBVExprUdiv(lhs, rhs BVExpr) (*BVExprArithmetic, error) {
+func mkBVExprUdiv(lhs, rhs BVExpr) (*BVExprBinArithmetic, error) {
 	children := make([]BVExpr, 0)
 	children = append(children, lhs)
 	children = append(children, rhs)
 	return mkBVArithmeticExpr(children, TY_UDIV, "u/")
 }
-func mkBVExprSrem(lhs, rhs BVExpr) (*BVExprArithmetic, error) {
+func mkBVExprSrem(lhs, rhs BVExpr) (*BVExprBinArithmetic, error) {
 	children := make([]BVExpr, 0)
 	children = append(children, lhs)
 	children = append(children, rhs)
 	return mkBVArithmeticExpr(children, TY_SREM, "s%")
 }
-func mkBVExprUrem(lhs, rhs BVExpr) (*BVExprArithmetic, error) {
+func mkBVExprUrem(lhs, rhs BVExpr) (*BVExprBinArithmetic, error) {
 	children := make([]BVExpr, 0)
 	children = append(children, lhs)
 	children = append(children, rhs)
 	return mkBVArithmeticExpr(children, TY_UREM, "u%")
 }
-func mkBVExprShl(lhs, rhs BVExpr) (*BVExprArithmetic, error) {
+func mkBVExprShl(lhs, rhs BVExpr) (*BVExprBinArithmetic, error) {
 	children := make([]BVExpr, 0)
 	children = append(children, lhs)
 	children = append(children, rhs)
 	return mkBVArithmeticExpr(children, TY_SHL, "<<")
 }
-func mkBVExprLshr(lhs, rhs BVExpr) (*BVExprArithmetic, error) {
+func mkBVExprLshr(lhs, rhs BVExpr) (*BVExprBinArithmetic, error) {
 	children := make([]BVExpr, 0)
 	children = append(children, lhs)
 	children = append(children, rhs)
 	return mkBVArithmeticExpr(children, TY_LSHR, "l>>")
 }
-func mkBVExprAshr(lhs, rhs BVExpr) (*BVExprArithmetic, error) {
+func mkBVExprAshr(lhs, rhs BVExpr) (*BVExprBinArithmetic, error) {
 	children := make([]BVExpr, 0)
 	children = append(children, lhs)
 	children = append(children, rhs)
 	return mkBVArithmeticExpr(children, TY_ASHR, "a>>")
+}
+
+/*
+ * TY_NOT, TY_NEG
+ */
+
+type BVExprUnArithmetic struct {
+	kind   int
+	symbol string
+	child  BVExpr
+}
+
+func mkBVExprUnArithmetic(child BVExpr, kind int, symbol string) (*BVExprUnArithmetic, error) {
+	return &BVExprUnArithmetic{kind: kind, symbol: symbol, child: child}, nil
+}
+
+func (e *BVExprUnArithmetic) String() string {
+	b := strings.Builder{}
+	if e.child.isLeaf() {
+		b.WriteString(fmt.Sprintf("%s%s", e.symbol, e.child.String()))
+	} else {
+		b.WriteString(fmt.Sprintf("%s(%s)", e.symbol, e.child.String()))
+	}
+	return b.String()
+}
+
+func (e *BVExprUnArithmetic) Size() uint {
+	return e.child.Size()
+}
+
+func (e *BVExprUnArithmetic) Children() []Expr {
+	res := make([]Expr, 0)
+	res = append(res, e.child)
+	return res
+}
+
+func (e *BVExprUnArithmetic) Kind() int {
+	return e.kind
+}
+
+func (e *BVExprUnArithmetic) hash() uint64 {
+	h := xxhash.New()
+	h.Write([]byte(e.symbol))
+	raw := make([]byte, 8)
+	binary.BigEndian.PutUint64(raw, uint64(e.child.rawPtr()))
+	h.Write(raw)
+	return h.Sum64()
+}
+
+func (e *BVExprUnArithmetic) DeepEq(other Expr) bool {
+	if other.Kind() != e.kind {
+		return false
+	}
+	oe := other.(*BVExprUnArithmetic)
+	return e.child.DeepEq(oe.child)
+}
+
+func (e *BVExprUnArithmetic) isLeaf() bool {
+	return false
+}
+
+func (e *BVExprUnArithmetic) rawPtr() uintptr {
+	return uintptr(unsafe.Pointer(e))
+}
+
+func mkBVExprNot(e BVExpr) (*BVExprUnArithmetic, error) {
+	return mkBVExprUnArithmetic(e, TY_NOT, "~")
+}
+func mkBVExprNeg(e BVExpr) (*BVExprUnArithmetic, error) {
+	return mkBVExprUnArithmetic(e, TY_NEG, "-")
 }
 
 /*
@@ -400,7 +528,7 @@ func (e *BoolExprCmp) hash() uint64 {
 }
 
 func (e *BoolExprCmp) DeepEq(other Expr) bool {
-	if other.Kind() != TY_ADD {
+	if other.Kind() != e.kind {
 		return false
 	}
 	oe := other.(*BoolExprCmp)
@@ -448,3 +576,240 @@ func mkBoolExprSge(lhs, rhs BVExpr) (*BoolExprCmp, error) {
 func mkBoolExprEq(lhs, rhs BVExpr) (*BoolExprCmp, error) {
 	return mkBoolExprCmp(lhs, rhs, TY_EQ, "==")
 }
+
+/*
+ * TY_BOOL_AND, TY_BOOL_OR
+ */
+
+type BoolBinArithmetic struct {
+	kind     int
+	symbol   string
+	lhs, rhs BoolExpr
+}
+
+func mkBoolBinArithmetic(lhs, rhs BoolExpr, kind int, symbol string) (*BoolBinArithmetic, error) {
+	return &BoolBinArithmetic{kind: kind, symbol: symbol, lhs: lhs, rhs: rhs}, nil
+}
+
+func (e *BoolBinArithmetic) IsTrue() bool {
+	return false
+}
+
+func (e *BoolBinArithmetic) IsFalse() bool {
+	return false
+}
+
+func (e *BoolBinArithmetic) String() string {
+	b := strings.Builder{}
+	if e.lhs.isLeaf() {
+		b.WriteString(e.lhs.String())
+	} else {
+		b.WriteString(fmt.Sprintf("(%s)", e.lhs.String()))
+	}
+
+	b.WriteString(fmt.Sprintf(" %s ", e.symbol))
+
+	if e.rhs.isLeaf() {
+		b.WriteString(e.rhs.String())
+	} else {
+		b.WriteString(fmt.Sprintf("(%s)", e.rhs.String()))
+	}
+	return b.String()
+}
+
+func (e *BoolBinArithmetic) Children() []Expr {
+	res := make([]Expr, 0)
+	res = append(res, e.lhs)
+	res = append(res, e.rhs)
+	return res
+}
+
+func (e *BoolBinArithmetic) Kind() int {
+	return e.kind
+}
+
+func (e *BoolBinArithmetic) hash() uint64 {
+	h := xxhash.New()
+	h.Write([]byte(e.symbol))
+
+	raw := make([]byte, 8)
+	binary.BigEndian.PutUint64(raw, uint64(e.lhs.rawPtr()))
+	h.Write(raw)
+	binary.BigEndian.PutUint64(raw, uint64(e.rhs.rawPtr()))
+	h.Write(raw)
+
+	return h.Sum64()
+}
+
+func (e *BoolBinArithmetic) DeepEq(other Expr) bool {
+	if other.Kind() != e.kind {
+		return false
+	}
+	oe := other.(*BoolExprCmp)
+	if !e.lhs.DeepEq(oe.lhs) {
+		return false
+	}
+	if !e.rhs.DeepEq(oe.rhs) {
+		return false
+	}
+	return true
+}
+
+func (e *BoolBinArithmetic) isLeaf() bool {
+	return false
+}
+
+func (e *BoolBinArithmetic) rawPtr() uintptr {
+	return uintptr(unsafe.Pointer(e))
+}
+
+func mkBoolAnd(lhs, rhs BoolExpr) (*BoolBinArithmetic, error) {
+	return mkBoolBinArithmetic(lhs, rhs, TY_BOOL_AND, "&&")
+}
+func mkBoolOr(lhs, rhs BoolExpr) (*BoolBinArithmetic, error) {
+	return mkBoolBinArithmetic(lhs, rhs, TY_BOOL_OR, "||")
+}
+
+/*
+ * TY_BOOL_NOT
+ */
+
+type BoolUnArithmetic struct {
+	kind   int
+	symbol string
+	child  BoolExpr
+}
+
+func mkBoolUnArithmetic(child BoolExpr, kind int, symbol string) (*BoolUnArithmetic, error) {
+	return &BoolUnArithmetic{kind: kind, symbol: symbol, child: child}, nil
+}
+
+func (e *BoolUnArithmetic) IsTrue() bool {
+	return false
+}
+
+func (e *BoolUnArithmetic) IsFalse() bool {
+	return false
+}
+
+func (e *BoolUnArithmetic) String() string {
+	b := strings.Builder{}
+	if e.child.isLeaf() {
+		b.WriteString(fmt.Sprintf("%s%s", e.symbol, e.child.String()))
+	} else {
+		b.WriteString(fmt.Sprintf("%s(%s)", e.symbol, e.child.String()))
+	}
+	return b.String()
+}
+
+func (e *BoolUnArithmetic) Children() []Expr {
+	res := make([]Expr, 0)
+	res = append(res, e.child)
+	return res
+}
+
+func (e *BoolUnArithmetic) Kind() int {
+	return e.kind
+}
+
+func (e *BoolUnArithmetic) hash() uint64 {
+	h := xxhash.New()
+	h.Write([]byte(e.symbol))
+
+	raw := make([]byte, 8)
+	binary.BigEndian.PutUint64(raw, uint64(e.child.rawPtr()))
+	h.Write(raw)
+
+	return h.Sum64()
+}
+
+func (e *BoolUnArithmetic) DeepEq(other Expr) bool {
+	if other.Kind() != e.kind {
+		return false
+	}
+	oe := other.(*BoolUnArithmetic)
+	return e.child.DeepEq(oe.child)
+}
+
+func (e *BoolUnArithmetic) isLeaf() bool {
+	return false
+}
+
+func (e *BoolUnArithmetic) rawPtr() uintptr {
+	return uintptr(unsafe.Pointer(e))
+}
+
+func mkBoolNot(e BoolExpr) (*BoolUnArithmetic, error) {
+	return mkBoolUnArithmetic(e, TY_BOOL_AND, "!")
+}
+
+/*
+ *  TY_EXTRACT
+ */
+
+type BVExtract struct {
+	child     BVExpr
+	high, low uint
+}
+
+func mkBVExtract(child BVExpr, high, low uint) (*BVExtract, error) {
+	if high < low {
+		return nil, fmt.Errorf("mkBVExtract(): high < low")
+	}
+	if child.Size() < high-low+1 {
+		return nil, fmt.Errorf("mkBVExtract(): high-low+1 > child.Size")
+	}
+	return &BVExtract{child: child, high: high, low: low}, nil
+}
+
+func (e *BVExtract) String() string {
+	b := strings.Builder{}
+	if e.child.isLeaf() {
+		b.WriteString(e.child.String())
+	} else {
+		b.WriteString(fmt.Sprintf("(%s)", e.child.String()))
+	}
+	b.WriteString(fmt.Sprintf("[%d:%d]", e.high, e.low))
+	return b.String()
+}
+
+func (e *BVExtract) Size() uint {
+	return e.high - e.low + 1
+}
+
+func (e *BVExtract) Children() []Expr {
+	res := make([]Expr, 0)
+	res = append(res, e.child)
+	return res
+}
+
+func (e *BVExtract) Kind() int {
+	return TY_EXTRACT
+}
+
+func (e *BVExtract) hash() uint64 {
+	h := xxhash.New()
+	h.Write([]byte("TY_EXTRACT"))
+	raw := make([]byte, 8)
+	binary.BigEndian.PutUint64(raw, uint64(e.child.rawPtr()))
+	h.Write(raw)
+	return h.Sum64()
+}
+
+func (e *BVExtract) DeepEq(other Expr) bool {
+	if other.Kind() != TY_EXTRACT {
+		return false
+	}
+	oe := other.(*BVExtract)
+	return e.child.DeepEq(oe.child)
+}
+
+func (e *BVExtract) isLeaf() bool {
+	return false
+}
+
+func (e *BVExtract) rawPtr() uintptr {
+	return uintptr(unsafe.Pointer(e))
+}
+
+// TODO: TY_CONCAT, TY_ZEXT, TY_SEXT, TY_ITE
