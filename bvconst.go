@@ -125,12 +125,22 @@ func (bv *BVConst) Mul(o *BVConst) error {
 	return nil
 }
 
-func (bv *BVConst) Div(o *BVConst) error {
+func (bv *BVConst) UDiv(o *BVConst) error {
 	if bv.Size != o.Size {
 		return fmt.Errorf("different sizes %d and %d", bv.Size, o.Size)
 	}
 
 	bv.value = bv.value.Div(bv.value, o.value)
+	bv.value.And(bv.value, bv.mask)
+	return nil
+}
+
+func (bv *BVConst) URem(o *BVConst) error {
+	if bv.Size != o.Size {
+		return fmt.Errorf("different sizes %d and %d", bv.Size, o.Size)
+	}
+
+	bv.value = bv.value.Rem(bv.value, o.value)
 	bv.value.And(bv.value, bv.mask)
 	return nil
 }
