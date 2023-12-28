@@ -43,8 +43,36 @@ func MakeBVConst(value int64, size uint) *BVConst {
 	return &BVConst{Size: size, mask: mask, value: v}
 }
 
+func MakeBVConstFromBigint(value *big.Int, size uint) *BVConst {
+	if size == 0 {
+		return nil
+	}
+
+	mask := makeMask(size)
+	v := value
+	if v.Cmp(zero) < 0 {
+		v = v.Neg(v)
+		v = v.Sub(v, one)
+		v = v.Sub(mask, v)
+		v = v.And(v, mask)
+	}
+	return &BVConst{Size: size, mask: mask, value: v}
+}
+
 func (bv *BVConst) IsNegative() bool {
 	return bv.value.Bit(int(bv.Size)-1) == 1
+}
+
+func (bv *BVConst) IsZero() bool {
+	return bv.value.Cmp(zero) == 0
+}
+
+func (bv *BVConst) IsOne() bool {
+	return bv.value.Cmp(one) == 0
+}
+
+func (bv *BVConst) HasAllBitsSet() bool {
+	return bv.value.Cmp(makeMask(bv.Size)) == 0
 }
 
 func (bv *BVConst) Copy() *BVConst {
@@ -135,6 +163,41 @@ func (bv *BVConst) UDiv(o *BVConst) error {
 	return nil
 }
 
+func (bv *BVConst) SDiv(o *BVConst) error {
+	if bv.Size != o.Size {
+		return fmt.Errorf("different sizes %d and %d", bv.Size, o.Size)
+	}
+
+	var c1, c2 *big.Int
+
+	v1 := bv.Copy()
+	v2 := o.Copy()
+	if v1.IsNegative() {
+		v1.Neg()
+		c1 = v1.value
+		c1 = c1.Neg(c1)
+	} else {
+		c1 = v1.value
+	}
+	if v2.IsNegative() {
+		v2.Neg()
+		c2 = v2.value
+		c2 = c2.Neg(c2)
+	} else {
+		c2 = v2.value
+	}
+
+	res := c1.Quo(c1, c2)
+	if res.Cmp(zero) < 0 {
+		res = res.Neg(res)
+		res = res.Sub(res, one)
+		res = res.Sub(bv.mask, res)
+		res = res.And(res, bv.mask)
+	}
+	bv.value = res
+	return nil
+}
+
 func (bv *BVConst) URem(o *BVConst) error {
 	if bv.Size != o.Size {
 		return fmt.Errorf("different sizes %d and %d", bv.Size, o.Size)
@@ -142,6 +205,41 @@ func (bv *BVConst) URem(o *BVConst) error {
 
 	bv.value = bv.value.Rem(bv.value, o.value)
 	bv.value.And(bv.value, bv.mask)
+	return nil
+}
+
+func (bv *BVConst) SRem(o *BVConst) error {
+	if bv.Size != o.Size {
+		return fmt.Errorf("different sizes %d and %d", bv.Size, o.Size)
+	}
+
+	var c1, c2 *big.Int
+
+	v1 := bv.Copy()
+	v2 := o.Copy()
+	if v1.IsNegative() {
+		v1.Neg()
+		c1 = v1.value
+		c1 = c1.Neg(c1)
+	} else {
+		c1 = v1.value
+	}
+	if v2.IsNegative() {
+		v2.Neg()
+		c2 = v2.value
+		c2 = c2.Neg(c2)
+	} else {
+		c2 = v2.value
+	}
+
+	res := c1.Rem(c1, c2)
+	if res.Cmp(zero) < 0 {
+		res = res.Neg(res)
+		res = res.Sub(res, one)
+		res = res.Sub(bv.mask, res)
+		res = res.And(res, bv.mask)
+	}
+	bv.value = res
 	return nil
 }
 

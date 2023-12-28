@@ -150,3 +150,19 @@ func TestCmp(t *testing.T) {
 		t.Errorf("[%s u< %s = %s] incorrect Ult result", bv1, bv2, v)
 	}
 }
+
+func TestDiv(t *testing.T) {
+	bv1 := MakeBVConst(-10, 32)
+	bv2 := MakeBVConst(3, 32)
+	resSdiv := bv1.Copy()
+	resSdiv.SDiv(bv2)
+	if resSdiv.AsLong() != -3 {
+		t.Error("invalid division")
+	}
+
+	resUdiv := bv1.Copy()
+	resUdiv.UDiv(bv2)
+	if resUdiv.AsULong() != 0x55555552 {
+		t.Error("invalid division")
+	}
+}
