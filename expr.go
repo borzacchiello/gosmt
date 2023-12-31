@@ -857,25 +857,25 @@ func mkBoolOr(lhs, rhs *BoolExprPtr) (*BoolBinArithmetic, error) {
  * TY_BOOL_NOT
  */
 
-type BoolUnArithmetic struct {
+type internalBoolUnArithmetic struct {
 	kind   int
 	symbol string
 	child  *BoolExprPtr
 }
 
-func mkBoolUnArithmetic(child *BoolExprPtr, kind int, symbol string) (*BoolUnArithmetic, error) {
-	return &BoolUnArithmetic{kind: kind, symbol: symbol, child: child}, nil
+func mkinternalBoolUnArithmetic(child *BoolExprPtr, kind int, symbol string) (*internalBoolUnArithmetic, error) {
+	return &internalBoolUnArithmetic{kind: kind, symbol: symbol, child: child}, nil
 }
 
-func (e *BoolUnArithmetic) IsTrue() bool {
+func (e *internalBoolUnArithmetic) IsTrue() bool {
 	return false
 }
 
-func (e *BoolUnArithmetic) IsFalse() bool {
+func (e *internalBoolUnArithmetic) IsFalse() bool {
 	return false
 }
 
-func (e *BoolUnArithmetic) String() string {
+func (e *internalBoolUnArithmetic) String() string {
 	b := strings.Builder{}
 	if e.child.e.isLeaf() {
 		b.WriteString(fmt.Sprintf("%s%s", e.symbol, e.child.String()))
@@ -885,17 +885,17 @@ func (e *BoolUnArithmetic) String() string {
 	return b.String()
 }
 
-func (e *BoolUnArithmetic) Children() []internalExpr {
+func (e *internalBoolUnArithmetic) Children() []internalExpr {
 	res := make([]internalExpr, 0)
 	res = append(res, e.child.e)
 	return res
 }
 
-func (e *BoolUnArithmetic) Kind() int {
+func (e *internalBoolUnArithmetic) Kind() int {
 	return e.kind
 }
 
-func (e *BoolUnArithmetic) hash() uint64 {
+func (e *internalBoolUnArithmetic) hash() uint64 {
 	h := xxhash.New()
 	h.Write([]byte(e.symbol))
 
@@ -906,32 +906,32 @@ func (e *BoolUnArithmetic) hash() uint64 {
 	return h.Sum64()
 }
 
-func (e *BoolUnArithmetic) deepEq(other internalExpr) bool {
+func (e *internalBoolUnArithmetic) deepEq(other internalExpr) bool {
 	if other.Kind() != e.kind {
 		return false
 	}
-	oe := other.(*BoolUnArithmetic)
+	oe := other.(*internalBoolUnArithmetic)
 	return e.child.e.deepEq(oe.child.e)
 }
 
-func (e *BoolUnArithmetic) shallowEq(other internalExpr) bool {
+func (e *internalBoolUnArithmetic) shallowEq(other internalExpr) bool {
 	if other.Kind() != e.kind {
 		return false
 	}
-	oe := other.(*BoolUnArithmetic)
+	oe := other.(*internalBoolUnArithmetic)
 	return e.child.e.rawPtr() != oe.child.e.rawPtr()
 }
 
-func (e *BoolUnArithmetic) isLeaf() bool {
+func (e *internalBoolUnArithmetic) isLeaf() bool {
 	return false
 }
 
-func (e *BoolUnArithmetic) rawPtr() uintptr {
+func (e *internalBoolUnArithmetic) rawPtr() uintptr {
 	return uintptr(unsafe.Pointer(e))
 }
 
-func mkBoolNot(e *BoolExprPtr) (*BoolUnArithmetic, error) {
-	return mkBoolUnArithmetic(e, TY_BOOL_AND, "!")
+func mkinternalBoolNot(e *BoolExprPtr) (*internalBoolUnArithmetic, error) {
+	return mkinternalBoolUnArithmetic(e, TY_BOOL_AND, "!")
 }
 
 /*

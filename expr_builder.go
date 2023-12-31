@@ -174,6 +174,49 @@ func flattenOrAddArithmeticArg(e *BVExprPtr, ty int, children []*BVExprPtr) []*B
 	return children
 }
 
+func removeOneIf(exprs []*BVExprPtr, cmpFun func(*BVExprPtr, *BVExprPtr) bool) []*BVExprPtr {
+	exprsPruned := make([]*BVExprPtr, 0)
+	for i := 0; i < len(exprs); i++ {
+		shouldRemove := false
+		for j := i + 1; j < len(exprs); j++ {
+			if cmpFun(exprs[i], exprs[j]) {
+				shouldRemove = true
+				break
+			}
+		}
+		if shouldRemove {
+			continue
+		}
+		exprsPruned = append(exprsPruned, exprs[i])
+	}
+	return exprsPruned
+}
+
+func removeBothIf(exprs []*BVExprPtr, cmpFun func(*BVExprPtr, *BVExprPtr) bool) []*BVExprPtr {
+	removed := make(map[int]bool, 0)
+	exprsPruned := make([]*BVExprPtr, 0)
+	for i := 0; i < len(exprs); i++ {
+		if _, ok := removed[i]; ok {
+			continue
+		}
+
+		oppositeId := -1
+		for j := i + 1; j < len(exprs); j++ {
+			if cmpFun(exprs[i], exprs[j]) {
+				oppositeId = j
+				break
+			}
+		}
+		if oppositeId >= 0 {
+			removed[i] = true
+			removed[oppositeId] = true
+			continue
+		}
+		exprsPruned = append(exprsPruned, exprs[i])
+	}
+	return exprsPruned
+}
+
 func (eb *ExprBuilder) BVV(val int64, size uint) *BVExprPtr {
 	return eb.getOrCreateBV(mkinternalBVV(val, size))
 }
@@ -272,34 +315,13 @@ func (eb *ExprBuilder) Add(lhs, rhs *BVExprPtr) (*BVExprPtr, error) {
 
 	// Remove add with opposite on flattened
 	if len(children) > 2 {
-		removed := make(map[int]bool, 0)
-		childrenPruned := make([]*BVExprPtr, 0)
-		for i := 0; i < len(children); i++ {
-			if _, ok := removed[i]; ok {
-				continue
-			}
-
-			oppositeId := -1
-			for j := i + 1; j < len(children); j++ {
-				if children[i].IsOppositeOf(children[j]) {
-					oppositeId = j
-					break
-				}
-			}
-			if oppositeId >= 0 {
-				removed[i] = true
-				removed[oppositeId] = true
-				continue
-			}
-			childrenPruned = append(childrenPruned, children[i])
-		}
-		if len(childrenPruned) == 0 {
+		children = removeBothIf(children, func(bp1, bp2 *BVExprPtr) bool { return bp1.IsOppositeOf(bp2) })
+		if len(children) == 0 {
 			return eb.BVV(0, lhs.Size()), nil
 		}
-		if len(childrenPruned) == 1 {
-			return childrenPruned[0], nil
+		if len(children) == 1 {
+			return children[0], nil
 		}
-		children = childrenPruned
 	}
 
 	sort.Slice(children[:], func(i, j int) bool { return children[i].Id() < children[j].Id() })
@@ -383,9 +405,26 @@ func (eb *ExprBuilder) And(lhs, rhs *BVExprPtr) (*BVExprPtr, error) {
 		return lhs, nil
 	}
 
+	// Check if lhs == rhs
+	if lhs.Id() == rhs.Id() {
+		return lhs, nil
+	}
+
 	children := make([]*BVExprPtr, 0)
 	children = flattenOrAddArithmeticArg(lhs, TY_AND, children)
 	children = flattenOrAddArithmeticArg(rhs, TY_AND, children)
+
+	// Remove and with same on flattened
+	if len(children) > 2 {
+		children = removeOneIf(children, func(bp1, bp2 *BVExprPtr) bool { return bp1.Id() == bp2.Id() })
+		if len(children) == 0 {
+			panic("should not happen")
+		}
+		if len(children) == 1 {
+			return children[0], nil
+		}
+	}
+
 	sort.Slice(children[:], func(i, j int) bool { return children[i].Id() < children[j].Id() })
 	ex, err := mkinternalBVExprAnd(children)
 	if err != nil {
@@ -425,9 +464,26 @@ func (eb *ExprBuilder) Or(lhs, rhs *BVExprPtr) (*BVExprPtr, error) {
 		return rhs, nil
 	}
 
+	// Check if lhs == rhs
+	if lhs.Id() == rhs.Id() {
+		return lhs, nil
+	}
+
 	children := make([]*BVExprPtr, 0)
 	children = flattenOrAddArithmeticArg(lhs, TY_OR, children)
 	children = flattenOrAddArithmeticArg(rhs, TY_OR, children)
+
+	// Remove and with same on flattened
+	if len(children) > 2 {
+		children = removeOneIf(children, func(bp1, bp2 *BVExprPtr) bool { return bp1.Id() == bp2.Id() })
+		if len(children) == 0 {
+			panic("should not happen")
+		}
+		if len(children) == 1 {
+			return children[0], nil
+		}
+	}
+
 	sort.Slice(children[:], func(i, j int) bool { return children[i].Id() < children[j].Id() })
 	ex, err := mkinternalBVExprOr(children)
 	if err != nil {
@@ -467,6 +523,18 @@ func (eb *ExprBuilder) Xor(lhs, rhs *BVExprPtr) (*BVExprPtr, error) {
 	children := make([]*BVExprPtr, 0)
 	children = flattenOrAddArithmeticArg(lhs, TY_XOR, children)
 	children = flattenOrAddArithmeticArg(rhs, TY_XOR, children)
+
+	// Remove couples of same expression on flattened
+	if len(children) > 2 {
+		children = removeBothIf(children, func(bp1, bp2 *BVExprPtr) bool { return bp1.Id() == bp2.Id() })
+		if len(children) == 0 {
+			return eb.BVV(0, lhs.Size()), nil
+		}
+		if len(children) == 1 {
+			return children[0], nil
+		}
+	}
+
 	sort.Slice(children[:], func(i, j int) bool { return children[i].Id() < children[j].Id() })
 	ex, err := mkinternalBVExprXor(children)
 	if err != nil {
@@ -575,4 +643,427 @@ func (eb *ExprBuilder) AShr(lhs, rhs *BVExprPtr) (*BVExprPtr, error) {
 		return nil, err
 	}
 	return eb.getOrCreateBV(ex), nil
+}
+
+func (eb *ExprBuilder) UDiv(lhs, rhs *BVExprPtr) (*BVExprPtr, error) {
+	if lhs.Size() != rhs.Size() {
+		return nil, fmt.Errorf("different sizes")
+	}
+
+	// Constant propagation
+	if lhs.IsConst() && rhs.IsConst() {
+		c1, _ := lhs.GetConst()
+		c2, _ := rhs.GetConst()
+		if c2.IsZero() {
+			// We are consistent with Z3 (div by zero yelds -1)
+			return eb.getOrCreateBV(mkinternalBVV(-1, c1.Size)), nil
+		}
+		c1.UDiv(c2)
+		return eb.getOrCreateBV(mkinternalBVVFromConst(*c1)), nil
+	}
+
+	// Div by myself
+	if lhs.Id() == rhs.Id() {
+		return eb.getOrCreateBV(mkinternalBVV(1, lhs.Size())), nil
+	}
+
+	ex, err := mkinternalBVExprUdiv(lhs, rhs)
+	if err != nil {
+		return nil, err
+	}
+	return eb.getOrCreateBV(ex), nil
+}
+
+func (eb *ExprBuilder) SDiv(lhs, rhs *BVExprPtr) (*BVExprPtr, error) {
+	if lhs.Size() != rhs.Size() {
+		return nil, fmt.Errorf("different sizes")
+	}
+
+	// Constant propagation
+	if lhs.IsConst() && rhs.IsConst() {
+		c1, _ := lhs.GetConst()
+		c2, _ := rhs.GetConst()
+		if c2.IsZero() {
+			// We are consistent with Z3 (div by zero yelds -1)
+			return eb.getOrCreateBV(mkinternalBVV(-1, c1.Size)), nil
+		}
+		c1.SDiv(c2)
+		return eb.getOrCreateBV(mkinternalBVVFromConst(*c1)), nil
+	}
+
+	// Div by myself
+	if lhs.Id() == rhs.Id() {
+		return eb.getOrCreateBV(mkinternalBVV(1, lhs.Size())), nil
+	}
+
+	ex, err := mkinternalBVExprSdiv(lhs, rhs)
+	if err != nil {
+		return nil, err
+	}
+	return eb.getOrCreateBV(ex), nil
+}
+
+func (eb *ExprBuilder) URem(lhs, rhs *BVExprPtr) (*BVExprPtr, error) {
+	if lhs.Size() != rhs.Size() {
+		return nil, fmt.Errorf("different sizes")
+	}
+
+	// Constant propagation
+	if lhs.IsConst() && rhs.IsConst() {
+		c1, _ := lhs.GetConst()
+		c2, _ := rhs.GetConst()
+		if c2.IsZero() {
+			// We are consistent with Z3 (rem by zero yields lhs)
+			return lhs, nil
+		}
+		c1.URem(c2)
+		return eb.getOrCreateBV(mkinternalBVVFromConst(*c1)), nil
+	}
+
+	// Rem by myself
+	if lhs.Id() == rhs.Id() {
+		return eb.getOrCreateBV(mkinternalBVV(0, lhs.Size())), nil
+	}
+	// Rem by one
+	if rhs.IsConst() {
+		c, _ := rhs.GetConst()
+		if c.IsOne() {
+			return eb.getOrCreateBV(mkinternalBVV(0, lhs.Size())), nil
+		}
+	}
+
+	ex, err := mkinternalBVExprUrem(lhs, rhs)
+	if err != nil {
+		return nil, err
+	}
+	return eb.getOrCreateBV(ex), nil
+}
+
+func (eb *ExprBuilder) SRem(lhs, rhs *BVExprPtr) (*BVExprPtr, error) {
+	if lhs.Size() != rhs.Size() {
+		return nil, fmt.Errorf("different sizes")
+	}
+
+	// Constant propagation
+	if lhs.IsConst() && rhs.IsConst() {
+		c1, _ := lhs.GetConst()
+		c2, _ := rhs.GetConst()
+		if c2.IsZero() {
+			// We are consistent with Z3 (rem by zero yields lhs)
+			return lhs, nil
+		}
+		c1.SRem(c2)
+		return eb.getOrCreateBV(mkinternalBVVFromConst(*c1)), nil
+	}
+
+	// Rem by myself
+	if lhs.Id() == rhs.Id() {
+		return eb.getOrCreateBV(mkinternalBVV(0, lhs.Size())), nil
+	}
+	// Rem by one
+	if rhs.IsConst() {
+		c, _ := rhs.GetConst()
+		if c.IsOne() {
+			return eb.getOrCreateBV(mkinternalBVV(0, lhs.Size())), nil
+		}
+	}
+
+	ex, err := mkinternalBVExprSrem(lhs, rhs)
+	if err != nil {
+		return nil, err
+	}
+	return eb.getOrCreateBV(ex), nil
+}
+
+func (eb *ExprBuilder) Ult(lhs, rhs *BVExprPtr) (*BoolExprPtr, error) {
+	if lhs.Size() != rhs.Size() {
+		return nil, fmt.Errorf("different sizes")
+	}
+
+	// Constant propagation
+	if lhs.IsConst() && rhs.IsConst() {
+		c1, _ := lhs.GetConst()
+		c2, _ := rhs.GetConst()
+		r, err := c1.Ult(c2)
+		if err != nil {
+			return nil, err
+		}
+		return eb.getOrCreateBool(mkinternalBoolConst(r.Value)), nil
+	}
+
+	ex, err := mkinternalBoolExprUlt(lhs, rhs)
+	if err != nil {
+		return nil, err
+	}
+	return eb.getOrCreateBool(ex), nil
+}
+
+func (eb *ExprBuilder) Ule(lhs, rhs *BVExprPtr) (*BoolExprPtr, error) {
+	if lhs.Size() != rhs.Size() {
+		return nil, fmt.Errorf("different sizes")
+	}
+
+	// Constant propagation
+	if lhs.IsConst() && rhs.IsConst() {
+		c1, _ := lhs.GetConst()
+		c2, _ := rhs.GetConst()
+		r, err := c1.Ule(c2)
+		if err != nil {
+			return nil, err
+		}
+		return eb.getOrCreateBool(mkinternalBoolConst(r.Value)), nil
+	}
+
+	ex, err := mkinternalBoolExprUle(lhs, rhs)
+	if err != nil {
+		return nil, err
+	}
+	return eb.getOrCreateBool(ex), nil
+}
+
+func (eb *ExprBuilder) UGt(lhs, rhs *BVExprPtr) (*BoolExprPtr, error) {
+	if lhs.Size() != rhs.Size() {
+		return nil, fmt.Errorf("different sizes")
+	}
+
+	// Constant propagation
+	if lhs.IsConst() && rhs.IsConst() {
+		c1, _ := lhs.GetConst()
+		c2, _ := rhs.GetConst()
+		r, err := c1.UGt(c2)
+		if err != nil {
+			return nil, err
+		}
+		return eb.getOrCreateBool(mkinternalBoolConst(r.Value)), nil
+	}
+
+	ex, err := mkinternalBoolExprUgt(lhs, rhs)
+	if err != nil {
+		return nil, err
+	}
+	return eb.getOrCreateBool(ex), nil
+}
+
+func (eb *ExprBuilder) UGe(lhs, rhs *BVExprPtr) (*BoolExprPtr, error) {
+	if lhs.Size() != rhs.Size() {
+		return nil, fmt.Errorf("different sizes")
+	}
+
+	// Constant propagation
+	if lhs.IsConst() && rhs.IsConst() {
+		c1, _ := lhs.GetConst()
+		c2, _ := rhs.GetConst()
+		r, err := c1.UGe(c2)
+		if err != nil {
+			return nil, err
+		}
+		return eb.getOrCreateBool(mkinternalBoolConst(r.Value)), nil
+	}
+
+	ex, err := mkinternalBoolExprUge(lhs, rhs)
+	if err != nil {
+		return nil, err
+	}
+	return eb.getOrCreateBool(ex), nil
+}
+
+func (eb *ExprBuilder) SLt(lhs, rhs *BVExprPtr) (*BoolExprPtr, error) {
+	if lhs.Size() != rhs.Size() {
+		return nil, fmt.Errorf("different sizes")
+	}
+
+	// Constant propagation
+	if lhs.IsConst() && rhs.IsConst() {
+		c1, _ := lhs.GetConst()
+		c2, _ := rhs.GetConst()
+		r, err := c1.SLt(c2)
+		if err != nil {
+			return nil, err
+		}
+		return eb.getOrCreateBool(mkinternalBoolConst(r.Value)), nil
+	}
+
+	ex, err := mkinternalBoolExprSlt(lhs, rhs)
+	if err != nil {
+		return nil, err
+	}
+	return eb.getOrCreateBool(ex), nil
+}
+
+func (eb *ExprBuilder) SLe(lhs, rhs *BVExprPtr) (*BoolExprPtr, error) {
+	if lhs.Size() != rhs.Size() {
+		return nil, fmt.Errorf("different sizes")
+	}
+
+	// Constant propagation
+	if lhs.IsConst() && rhs.IsConst() {
+		c1, _ := lhs.GetConst()
+		c2, _ := rhs.GetConst()
+		r, err := c1.SLe(c2)
+		if err != nil {
+			return nil, err
+		}
+		return eb.getOrCreateBool(mkinternalBoolConst(r.Value)), nil
+	}
+
+	ex, err := mkinternalBoolExprSle(lhs, rhs)
+	if err != nil {
+		return nil, err
+	}
+	return eb.getOrCreateBool(ex), nil
+}
+
+func (eb *ExprBuilder) SGt(lhs, rhs *BVExprPtr) (*BoolExprPtr, error) {
+	if lhs.Size() != rhs.Size() {
+		return nil, fmt.Errorf("different sizes")
+	}
+
+	// Constant propagation
+	if lhs.IsConst() && rhs.IsConst() {
+		c1, _ := lhs.GetConst()
+		c2, _ := rhs.GetConst()
+		r, err := c1.SGt(c2)
+		if err != nil {
+			return nil, err
+		}
+		return eb.getOrCreateBool(mkinternalBoolConst(r.Value)), nil
+	}
+
+	ex, err := mkinternalBoolExprSgt(lhs, rhs)
+	if err != nil {
+		return nil, err
+	}
+	return eb.getOrCreateBool(ex), nil
+}
+
+func (eb *ExprBuilder) SGe(lhs, rhs *BVExprPtr) (*BoolExprPtr, error) {
+	if lhs.Size() != rhs.Size() {
+		return nil, fmt.Errorf("different sizes")
+	}
+
+	// Constant propagation
+	if lhs.IsConst() && rhs.IsConst() {
+		c1, _ := lhs.GetConst()
+		c2, _ := rhs.GetConst()
+		r, err := c1.SGe(c2)
+		if err != nil {
+			return nil, err
+		}
+		return eb.getOrCreateBool(mkinternalBoolConst(r.Value)), nil
+	}
+
+	ex, err := mkinternalBoolExprSge(lhs, rhs)
+	if err != nil {
+		return nil, err
+	}
+	return eb.getOrCreateBool(ex), nil
+}
+
+func (eb *ExprBuilder) Eq(lhs, rhs *BVExprPtr) (*BoolExprPtr, error) {
+	if lhs.Size() != rhs.Size() {
+		return nil, fmt.Errorf("different sizes")
+	}
+
+	// Constant propagation
+	if lhs.IsConst() && rhs.IsConst() {
+		c1, _ := lhs.GetConst()
+		c2, _ := rhs.GetConst()
+		r, err := c1.Eq(c2)
+		if err != nil {
+			return nil, err
+		}
+		return eb.getOrCreateBool(mkinternalBoolConst(r.Value)), nil
+	}
+
+	ex, err := mkinternalBoolExprEq(lhs, rhs)
+	if err != nil {
+		return nil, err
+	}
+	return eb.getOrCreateBool(ex), nil
+}
+
+func (eb *ExprBuilder) BoolNot(e *BoolExprPtr) (*BoolExprPtr, error) {
+	// Constant propagation
+	if e.IsConst() {
+		v, _ := e.GetConst()
+		return eb.getOrCreateBool(mkinternalBoolConst(v)), nil
+	}
+
+	// Not of Not
+	if e.Kind() == TY_BOOL_NOT {
+		eBoolNot := e.e.(*internalBoolUnArithmetic)
+		return eBoolNot.child, nil
+	}
+
+	// Not of { Ule, Ult, Uge, Ugt, Sle, Slt, Sge, Sgt }
+	if e.Kind() == TY_ULE {
+		eInt := e.e.(*internalBoolExprCmp)
+		ex, err := mkinternalBoolExprUgt(eInt.lhs, eInt.rhs)
+		if err != nil {
+			return nil, err
+		}
+		return eb.getOrCreateBool(ex), nil
+	}
+	if e.Kind() == TY_ULT {
+		eInt := e.e.(*internalBoolExprCmp)
+		ex, err := mkinternalBoolExprUge(eInt.lhs, eInt.rhs)
+		if err != nil {
+			return nil, err
+		}
+		return eb.getOrCreateBool(ex), nil
+	}
+	if e.Kind() == TY_UGE {
+		eInt := e.e.(*internalBoolExprCmp)
+		ex, err := mkinternalBoolExprUlt(eInt.lhs, eInt.rhs)
+		if err != nil {
+			return nil, err
+		}
+		return eb.getOrCreateBool(ex), nil
+	}
+	if e.Kind() == TY_UGT {
+		eInt := e.e.(*internalBoolExprCmp)
+		ex, err := mkinternalBoolExprUle(eInt.lhs, eInt.rhs)
+		if err != nil {
+			return nil, err
+		}
+		return eb.getOrCreateBool(ex), nil
+	}
+	if e.Kind() == TY_SLE {
+		eInt := e.e.(*internalBoolExprCmp)
+		ex, err := mkinternalBoolExprSgt(eInt.lhs, eInt.rhs)
+		if err != nil {
+			return nil, err
+		}
+		return eb.getOrCreateBool(ex), nil
+	}
+	if e.Kind() == TY_SLT {
+		eInt := e.e.(*internalBoolExprCmp)
+		ex, err := mkinternalBoolExprSge(eInt.lhs, eInt.rhs)
+		if err != nil {
+			return nil, err
+		}
+		return eb.getOrCreateBool(ex), nil
+	}
+	if e.Kind() == TY_SGT {
+		eInt := e.e.(*internalBoolExprCmp)
+		ex, err := mkinternalBoolExprSle(eInt.lhs, eInt.rhs)
+		if err != nil {
+			return nil, err
+		}
+		return eb.getOrCreateBool(ex), nil
+	}
+	if e.Kind() == TY_SGE {
+		eInt := e.e.(*internalBoolExprCmp)
+		ex, err := mkinternalBoolExprSlt(eInt.lhs, eInt.rhs)
+		if err != nil {
+			return nil, err
+		}
+		return eb.getOrCreateBool(ex), nil
+	}
+
+	ex, err := mkinternalBoolNot(e)
+	if err != nil {
+		return nil, err
+	}
+	return eb.getOrCreateBool(ex), nil
 }
