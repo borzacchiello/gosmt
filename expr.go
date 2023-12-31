@@ -931,7 +931,7 @@ func (e *internalBoolUnArithmetic) rawPtr() uintptr {
 }
 
 func mkinternalBoolNot(e *BoolExprPtr) (*internalBoolUnArithmetic, error) {
-	return mkinternalBoolUnArithmetic(e, TY_BOOL_AND, "!")
+	return mkinternalBoolUnArithmetic(e, TY_BOOL_NOT, "!")
 }
 
 /*
