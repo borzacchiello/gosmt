@@ -188,3 +188,43 @@ func TestShift1(t *testing.T) {
 		return
 	}
 }
+
+func TestBool1(t *testing.T) {
+	eb := NewExprBuilder()
+
+	a, err := eb.Eq(eb.BVS("a", 1), eb.BVV(1, 1))
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	b, err := eb.Eq(eb.BVS("b", 1), eb.BVV(1, 1))
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	e, err := eb.BoolAnd(a, b)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	e, err = eb.BoolNot(e)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	e, err = eb.BoolAnd(e, eb.BoolVal(true))
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	e, err = eb.BoolOr(e, eb.BoolVal(false))
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	if e.String() != "(!(a == 0x1)) || (!(b == 0x1))" {
+		t.Error("unexpected expression")
+		return
+	}
+}

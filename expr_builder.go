@@ -982,17 +982,69 @@ func (eb *ExprBuilder) Eq(lhs, rhs *BVExprPtr) (*BoolExprPtr, error) {
 	return eb.getOrCreateBool(ex), nil
 }
 
+func (eb *ExprBuilder) BoolVal(v bool) *BoolExprPtr {
+	return eb.getOrCreateBool(mkinternalBoolConst(v))
+}
+
 func (eb *ExprBuilder) BoolNot(e *BoolExprPtr) (*BoolExprPtr, error) {
 	// Constant propagation
 	if e.IsConst() {
 		v, _ := e.GetConst()
-		return eb.getOrCreateBool(mkinternalBoolConst(v)), nil
+		return eb.getOrCreateBool(mkinternalBoolConst(!v)), nil
 	}
 
 	// Not of Not
 	if e.Kind() == TY_BOOL_NOT {
 		eBoolNot := e.e.(*internalBoolUnArithmetic)
 		return eBoolNot.child, nil
+	}
+
+	// Distribute Not over And (De Morgan)
+	if e.Kind() == TY_BOOL_AND {
+		eInt := e.e.(*internalBoolBinArithmetic)
+		children := make([]*BoolExprPtr, 0)
+		for i := 0; i < len(eInt.children); i++ {
+			child, err := eb.BoolNot(eInt.children[i])
+			if err != nil {
+				return nil, err
+			}
+			children = append(children, child)
+		}
+		r, err := eb.BoolOr(children[0], children[1])
+		if err != nil {
+			return nil, err
+		}
+		for i := 2; i < len(children); i++ {
+			r, err = eb.BoolOr(r, children[i])
+			if err != nil {
+				return nil, err
+			}
+		}
+		return r, nil
+	}
+
+	// Distribute Not over Or (De Morgan)
+	if e.Kind() == TY_BOOL_OR {
+		eInt := e.e.(*internalBoolBinArithmetic)
+		children := make([]*BoolExprPtr, 0)
+		for i := 0; i < len(eInt.children); i++ {
+			child, err := eb.BoolNot(eInt.children[i])
+			if err != nil {
+				return nil, err
+			}
+			children = append(children, child)
+		}
+		r, err := eb.BoolAnd(children[0], children[1])
+		if err != nil {
+			return nil, err
+		}
+		for i := 2; i < len(children); i++ {
+			r, err = eb.BoolAnd(r, children[i])
+			if err != nil {
+				return nil, err
+			}
+		}
+		return r, nil
 	}
 
 	// Not of { Ule, Ult, Uge, Ugt, Sle, Slt, Sge, Sgt }
@@ -1062,6 +1114,86 @@ func (eb *ExprBuilder) BoolNot(e *BoolExprPtr) (*BoolExprPtr, error) {
 	}
 
 	ex, err := mkinternalBoolNot(e)
+	if err != nil {
+		return nil, err
+	}
+	return eb.getOrCreateBool(ex), nil
+}
+
+func (eb *ExprBuilder) BoolAnd(lhs, rhs *BoolExprPtr) (*BoolExprPtr, error) {
+	// Constant propagation
+	if lhs.IsConst() {
+		lhsV, _ := lhs.GetConst()
+		if lhsV {
+			return rhs, nil
+		}
+		return eb.getOrCreateBool(mkinternalBoolConst(false)), nil
+	}
+	if rhs.IsConst() {
+		rhsV, _ := rhs.GetConst()
+		if rhsV {
+			return lhs, nil
+		}
+		return eb.getOrCreateBool(mkinternalBoolConst(false)), nil
+	}
+
+	// Flatten args
+	children := make([]*BoolExprPtr, 0)
+	if lhs.Kind() == TY_BOOL_AND {
+		lhsInner := lhs.e.(*internalBoolBinArithmetic)
+		children = append(children, lhsInner.children...)
+	} else {
+		children = append(children, lhs)
+	}
+	if rhs.Kind() == TY_BOOL_AND {
+		rhsInner := rhs.e.(*internalBoolBinArithmetic)
+		children = append(children, rhsInner.children...)
+	} else {
+		children = append(children, rhs)
+	}
+
+	sort.Slice(children[:], func(i, j int) bool { return children[i].Id() < children[j].Id() })
+	ex, err := mkinternalBoolAnd(children)
+	if err != nil {
+		return nil, err
+	}
+	return eb.getOrCreateBool(ex), nil
+}
+
+func (eb *ExprBuilder) BoolOr(lhs, rhs *BoolExprPtr) (*BoolExprPtr, error) {
+	// Constant propagation
+	if lhs.IsConst() {
+		lhsV, _ := lhs.GetConst()
+		if !lhsV {
+			return rhs, nil
+		}
+		return eb.getOrCreateBool(mkinternalBoolConst(true)), nil
+	}
+	if rhs.IsConst() {
+		rhsV, _ := rhs.GetConst()
+		if !rhsV {
+			return lhs, nil
+		}
+		return eb.getOrCreateBool(mkinternalBoolConst(true)), nil
+	}
+
+	// Flatten args
+	children := make([]*BoolExprPtr, 0)
+	if lhs.Kind() == TY_BOOL_OR {
+		lhsInner := lhs.e.(*internalBoolBinArithmetic)
+		children = append(children, lhsInner.children...)
+	} else {
+		children = append(children, lhs)
+	}
+	if rhs.Kind() == TY_BOOL_OR {
+		rhsInner := rhs.e.(*internalBoolBinArithmetic)
+		children = append(children, rhsInner.children...)
+	} else {
+		children = append(children, rhs)
+	}
+
+	sort.Slice(children[:], func(i, j int) bool { return children[i].Id() < children[j].Id() })
+	ex, err := mkinternalBoolOr(children)
 	if err != nil {
 		return nil, err
 	}
