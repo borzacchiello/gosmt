@@ -57,16 +57,12 @@ type BVExprPtr struct {
 	e internalBVExpr
 }
 
-func wrapBVExpr(e internalBVExpr) *BVExprPtr {
-	return &BVExprPtr{e}
-}
-
 func (bv *BVExprPtr) IsConst() bool {
-	return bv.e.Kind() == TY_CONST
+	return bv.e.kind() == TY_CONST
 }
 
 func (bv *BVExprPtr) GetConst() (*BVConst, error) {
-	if bv.e.Kind() != TY_CONST {
+	if bv.e.kind() != TY_CONST {
 		return nil, fmt.Errorf("not a constant")
 	}
 	c := bv.e.(*internalBVV)
@@ -112,7 +108,7 @@ func (bv *BVExprPtr) IsOppositeOf(o *BVExprPtr) bool {
 }
 
 func (bv *BVExprPtr) Size() uint {
-	return bv.e.Size()
+	return bv.e.size()
 }
 
 func (bv *BVExprPtr) String() string {
@@ -124,23 +120,19 @@ func (bv *BVExprPtr) Id() uintptr {
 }
 
 func (bv *BVExprPtr) Kind() int {
-	return bv.e.Kind()
+	return bv.e.kind()
 }
 
 type BoolExprPtr struct {
 	e internalBoolExpr
 }
 
-func wrapBoolExpr(e internalBoolExpr) *BoolExprPtr {
-	return &BoolExprPtr{e}
-}
-
 func (e *BoolExprPtr) IsConst() bool {
-	return e.e.Kind() == TY_BOOL_CONST
+	return e.e.kind() == TY_BOOL_CONST
 }
 
 func (e *BoolExprPtr) GetConst() (bool, error) {
-	if e.e.Kind() != TY_BOOL_CONST {
+	if e.e.kind() != TY_BOOL_CONST {
 		return false, fmt.Errorf("not a constant")
 	}
 	c := e.e.(*internalBoolVal)
@@ -156,7 +148,7 @@ func (e *BoolExprPtr) Id() uintptr {
 }
 
 func (e *BoolExprPtr) Kind() int {
-	return e.e.Kind()
+	return e.e.kind()
 }
 
 /*
@@ -164,12 +156,12 @@ func (e *BoolExprPtr) Kind() int {
  */
 
 type internalBVExpr interface {
-	Kind() int
 	String() string
-	BVChildren() []internalBVExpr
-	BoolChildren() []internalBoolExpr
-	Size() uint
 
+	kind() int
+	bvChildren() []internalBVExpr
+	boolChildren() []internalBoolExpr
+	size() uint
 	isLeaf() bool
 	rawPtr() uintptr
 	hash() uint64
@@ -178,13 +170,11 @@ type internalBVExpr interface {
 }
 
 type internalBoolExpr interface {
-	Kind() int
 	String() string
-	BVChildren() []internalBVExpr
-	BoolChildren() []internalBoolExpr
-	IsTrue() bool
-	IsFalse() bool
 
+	kind() int
+	bvChildren() []internalBVExpr
+	boolChildren() []internalBoolExpr
 	isLeaf() bool
 	rawPtr() uintptr
 	hash() uint64
@@ -212,19 +202,19 @@ func (bvv *internalBVV) String() string {
 	return fmt.Sprintf("0x%x", bvv.Value.value)
 }
 
-func (bvv *internalBVV) Size() uint {
+func (bvv *internalBVV) size() uint {
 	return bvv.Value.Size
 }
 
-func (bvv *internalBVV) BVChildren() []internalBVExpr {
+func (bvv *internalBVV) bvChildren() []internalBVExpr {
 	return make([]internalBVExpr, 0)
 }
 
-func (bvv *internalBVV) BoolChildren() []internalBoolExpr {
+func (bvv *internalBVV) boolChildren() []internalBoolExpr {
 	return make([]internalBoolExpr, 0)
 }
 
-func (bvv *internalBVV) Kind() int {
+func (bvv *internalBVV) kind() int {
 	return TY_CONST
 }
 
@@ -238,7 +228,7 @@ func (bvv *internalBVV) hash() uint64 {
 }
 
 func (bvv *internalBVV) deepEq(other internalBVExpr) bool {
-	if other.Kind() != TY_CONST {
+	if other.kind() != TY_CONST {
 		return false
 	}
 	obvv := other.(*internalBVV)
@@ -276,27 +266,19 @@ func mkinternalBoolConst(value bool) *internalBoolVal {
 	return &internalBoolVal{Value: BoolFalse()}
 }
 
-func (b *internalBoolVal) IsTrue() bool {
-	return b.Value.Value
-}
-
-func (b *internalBoolVal) IsFalse() bool {
-	return !b.Value.Value
-}
-
 func (b *internalBoolVal) String() string {
 	return b.Value.String()
 }
 
-func (b *internalBoolVal) BVChildren() []internalBVExpr {
+func (b *internalBoolVal) bvChildren() []internalBVExpr {
 	return make([]internalBVExpr, 0)
 }
 
-func (b *internalBoolVal) BoolChildren() []internalBoolExpr {
+func (b *internalBoolVal) boolChildren() []internalBoolExpr {
 	return make([]internalBoolExpr, 0)
 }
 
-func (b *internalBoolVal) Kind() int {
+func (b *internalBoolVal) kind() int {
 	return TY_BOOL_CONST
 }
 
@@ -308,7 +290,7 @@ func (b *internalBoolVal) hash() uint64 {
 }
 
 func (b *internalBoolVal) deepEq(other internalBoolExpr) bool {
-	if other.Kind() != TY_BOOL_CONST {
+	if other.kind() != TY_BOOL_CONST {
 		return false
 	}
 	ob := other.(*internalBoolVal)
@@ -332,49 +314,49 @@ func (b *internalBoolVal) rawPtr() uintptr {
  */
 
 type internalBVS struct {
-	Name string
-	size uint
+	name string
+	sz   uint
 }
 
 func mkinternalBVS(name string, size uint) *internalBVS {
-	return &internalBVS{Name: name, size: size}
+	return &internalBVS{name: name, sz: size}
 }
 
 func (bvs *internalBVS) String() string {
-	return bvs.Name
+	return bvs.name
 }
 
-func (bvs *internalBVS) Size() uint {
-	return bvs.size
+func (bvs *internalBVS) size() uint {
+	return bvs.sz
 }
 
-func (bvs *internalBVS) BVChildren() []internalBVExpr {
+func (bvs *internalBVS) bvChildren() []internalBVExpr {
 	return make([]internalBVExpr, 0)
 }
 
-func (bvs *internalBVS) BoolChildren() []internalBoolExpr {
+func (bvs *internalBVS) boolChildren() []internalBoolExpr {
 	return make([]internalBoolExpr, 0)
 }
 
-func (bvs *internalBVS) Kind() int {
+func (bvs *internalBVS) kind() int {
 	return TY_SYM
 }
 
 func (bvs *internalBVS) hash() uint64 {
 	h := xxhash.New()
-	n, err := h.Write([]byte(bvs.Name))
-	if err != nil || n != len(bvs.Name) {
+	n, err := h.Write([]byte(bvs.name))
+	if err != nil || n != len(bvs.name) {
 		panic(err)
 	}
 	return h.Sum64()
 }
 
 func (bvs *internalBVS) deepEq(other internalBVExpr) bool {
-	if other.Kind() != TY_SYM {
+	if other.kind() != TY_SYM {
 		return false
 	}
 	obvs := other.(*internalBVS)
-	return obvs.size == bvs.size && obvs.Name == bvs.Name
+	return obvs.sz == bvs.sz && obvs.name == bvs.name
 }
 
 func (bvs *internalBVS) shallowEq(other internalBVExpr) bool {
@@ -394,7 +376,7 @@ func (bvs *internalBVS) rawPtr() uintptr {
  */
 
 type internalBVExprBinArithmetic struct {
-	kind     int
+	knd      uint8
 	symbol   string
 	children []*BVExprPtr
 }
@@ -408,7 +390,7 @@ func mkBVArithmeticExpr(children []*BVExprPtr, kind int, symbol string) (*intern
 			return nil, fmt.Errorf("mkBVArithmeticExpr(): invalid sizes")
 		}
 	}
-	return &internalBVExprBinArithmetic{kind: kind, symbol: symbol, children: children}, nil
+	return &internalBVExprBinArithmetic{knd: uint8(kind), symbol: symbol, children: children}, nil
 }
 
 func (e *internalBVExprBinArithmetic) String() string {
@@ -428,11 +410,11 @@ func (e *internalBVExprBinArithmetic) String() string {
 	return b.String()
 }
 
-func (e *internalBVExprBinArithmetic) Size() uint {
+func (e *internalBVExprBinArithmetic) size() uint {
 	return e.children[0].Size()
 }
 
-func (e *internalBVExprBinArithmetic) BVChildren() []internalBVExpr {
+func (e *internalBVExprBinArithmetic) bvChildren() []internalBVExpr {
 	res := make([]internalBVExpr, 0)
 	for i := 0; i < len(e.children); i++ {
 		res = append(res, e.children[i].e)
@@ -440,13 +422,13 @@ func (e *internalBVExprBinArithmetic) BVChildren() []internalBVExpr {
 	return res
 }
 
-func (e *internalBVExprBinArithmetic) BoolChildren() []internalBoolExpr {
+func (e *internalBVExprBinArithmetic) boolChildren() []internalBoolExpr {
 	res := make([]internalBoolExpr, 0)
 	return res
 }
 
-func (e *internalBVExprBinArithmetic) Kind() int {
-	return e.kind
+func (e *internalBVExprBinArithmetic) kind() int {
+	return int(e.knd)
 }
 
 func (e *internalBVExprBinArithmetic) hash() uint64 {
@@ -461,7 +443,7 @@ func (e *internalBVExprBinArithmetic) hash() uint64 {
 }
 
 func (e *internalBVExprBinArithmetic) deepEq(other internalBVExpr) bool {
-	if other.Kind() != e.kind {
+	if other.kind() != e.kind() {
 		return false
 	}
 	oe := other.(*internalBVExprBinArithmetic)
@@ -477,7 +459,7 @@ func (e *internalBVExprBinArithmetic) deepEq(other internalBVExpr) bool {
 }
 
 func (e *internalBVExprBinArithmetic) shallowEq(other internalBVExpr) bool {
-	if other.Kind() != e.kind {
+	if other.kind() != e.kind() {
 		return false
 	}
 	oe := other.(*internalBVExprBinArithmetic)
@@ -563,13 +545,13 @@ func mkinternalBVExprAshr(lhs, rhs *BVExprPtr) (*internalBVExprBinArithmetic, er
  */
 
 type internalBVExprUnArithmetic struct {
-	kind   int
+	knd    uint8
 	symbol string
 	child  *BVExprPtr
 }
 
 func mkinternalBVExprUnArithmetic(child *BVExprPtr, kind int, symbol string) (*internalBVExprUnArithmetic, error) {
-	return &internalBVExprUnArithmetic{kind: kind, symbol: symbol, child: child}, nil
+	return &internalBVExprUnArithmetic{knd: uint8(kind), symbol: symbol, child: child}, nil
 }
 
 func (e *internalBVExprUnArithmetic) String() string {
@@ -582,23 +564,23 @@ func (e *internalBVExprUnArithmetic) String() string {
 	return b.String()
 }
 
-func (e *internalBVExprUnArithmetic) Size() uint {
+func (e *internalBVExprUnArithmetic) size() uint {
 	return e.child.Size()
 }
 
-func (e *internalBVExprUnArithmetic) BVChildren() []internalBVExpr {
+func (e *internalBVExprUnArithmetic) bvChildren() []internalBVExpr {
 	res := make([]internalBVExpr, 0)
 	res = append(res, e.child.e)
 	return res
 }
 
-func (e *internalBVExprUnArithmetic) BoolChildren() []internalBoolExpr {
+func (e *internalBVExprUnArithmetic) boolChildren() []internalBoolExpr {
 	res := make([]internalBoolExpr, 0)
 	return res
 }
 
-func (e *internalBVExprUnArithmetic) Kind() int {
-	return e.kind
+func (e *internalBVExprUnArithmetic) kind() int {
+	return int(e.knd)
 }
 
 func (e *internalBVExprUnArithmetic) hash() uint64 {
@@ -611,7 +593,7 @@ func (e *internalBVExprUnArithmetic) hash() uint64 {
 }
 
 func (e *internalBVExprUnArithmetic) deepEq(other internalBVExpr) bool {
-	if other.Kind() != e.kind {
+	if other.kind() != e.kind() {
 		return false
 	}
 	oe := other.(*internalBVExprUnArithmetic)
@@ -619,7 +601,7 @@ func (e *internalBVExprUnArithmetic) deepEq(other internalBVExpr) bool {
 }
 
 func (e *internalBVExprUnArithmetic) shallowEq(other internalBVExpr) bool {
-	if other.Kind() != e.kind {
+	if other.kind() != e.kind() {
 		return false
 	}
 	oe := other.(*internalBVExprUnArithmetic)
@@ -646,7 +628,7 @@ func mkinternalBVExprNeg(e *BVExprPtr) (*internalBVExprUnArithmetic, error) {
  */
 
 type internalBoolExprCmp struct {
-	kind     int
+	knd      uint8
 	symbol   string
 	lhs, rhs *BVExprPtr
 }
@@ -655,15 +637,7 @@ func mkinternalBoolExprCmp(lhs, rhs *BVExprPtr, kind int, symbol string) (*inter
 	if rhs.Size() != lhs.Size() {
 		return nil, fmt.Errorf("mkinternalBoolExprCmp(): invalid sizes")
 	}
-	return &internalBoolExprCmp{kind: kind, symbol: symbol, lhs: lhs, rhs: rhs}, nil
-}
-
-func (e *internalBoolExprCmp) IsTrue() bool {
-	return false
-}
-
-func (e *internalBoolExprCmp) IsFalse() bool {
-	return false
+	return &internalBoolExprCmp{knd: uint8(kind), symbol: symbol, lhs: lhs, rhs: rhs}, nil
 }
 
 func (e *internalBoolExprCmp) String() string {
@@ -684,20 +658,20 @@ func (e *internalBoolExprCmp) String() string {
 	return b.String()
 }
 
-func (e *internalBoolExprCmp) BVChildren() []internalBVExpr {
+func (e *internalBoolExprCmp) bvChildren() []internalBVExpr {
 	res := make([]internalBVExpr, 0)
 	res = append(res, e.lhs.e)
 	res = append(res, e.rhs.e)
 	return res
 }
 
-func (e *internalBoolExprCmp) BoolChildren() []internalBoolExpr {
+func (e *internalBoolExprCmp) boolChildren() []internalBoolExpr {
 	res := make([]internalBoolExpr, 0)
 	return res
 }
 
-func (e *internalBoolExprCmp) Kind() int {
-	return e.kind
+func (e *internalBoolExprCmp) kind() int {
+	return int(e.knd)
 }
 
 func (e *internalBoolExprCmp) hash() uint64 {
@@ -714,7 +688,7 @@ func (e *internalBoolExprCmp) hash() uint64 {
 }
 
 func (e *internalBoolExprCmp) deepEq(other internalBoolExpr) bool {
-	if other.Kind() != e.kind {
+	if other.kind() != e.kind() {
 		return false
 	}
 	oe := other.(*internalBoolExprCmp)
@@ -728,7 +702,7 @@ func (e *internalBoolExprCmp) deepEq(other internalBoolExpr) bool {
 }
 
 func (e *internalBoolExprCmp) shallowEq(other internalBoolExpr) bool {
-	if other.Kind() != e.kind {
+	if other.kind() != e.kind() {
 		return false
 	}
 	oe := other.(*internalBoolExprCmp)
@@ -782,21 +756,13 @@ func mkinternalBoolExprEq(lhs, rhs *BVExprPtr) (*internalBoolExprCmp, error) {
  */
 
 type internalBoolExprNaryOp struct {
-	kind     int
+	knd      uint8
 	symbol   string
 	children []*BoolExprPtr
 }
 
 func mkinternalBoolExprNaryOp(children []*BoolExprPtr, kind int, symbol string) (*internalBoolExprNaryOp, error) {
-	return &internalBoolExprNaryOp{kind: kind, symbol: symbol, children: children}, nil
-}
-
-func (e *internalBoolExprNaryOp) IsTrue() bool {
-	return false
-}
-
-func (e *internalBoolExprNaryOp) IsFalse() bool {
-	return false
+	return &internalBoolExprNaryOp{knd: uint8(kind), symbol: symbol, children: children}, nil
 }
 
 func (e *internalBoolExprNaryOp) String() string {
@@ -818,12 +784,12 @@ func (e *internalBoolExprNaryOp) String() string {
 	return b.String()
 }
 
-func (e *internalBoolExprNaryOp) BVChildren() []internalBVExpr {
+func (e *internalBoolExprNaryOp) bvChildren() []internalBVExpr {
 	res := make([]internalBVExpr, 0)
 	return res
 }
 
-func (e *internalBoolExprNaryOp) BoolChildren() []internalBoolExpr {
+func (e *internalBoolExprNaryOp) boolChildren() []internalBoolExpr {
 	res := make([]internalBoolExpr, 0)
 	for i := 0; i < len(e.children); i++ {
 		res = append(res, e.children[i].e)
@@ -831,8 +797,8 @@ func (e *internalBoolExprNaryOp) BoolChildren() []internalBoolExpr {
 	return res
 }
 
-func (e *internalBoolExprNaryOp) Kind() int {
-	return e.kind
+func (e *internalBoolExprNaryOp) kind() int {
+	return int(e.knd)
 }
 
 func (e *internalBoolExprNaryOp) hash() uint64 {
@@ -848,7 +814,7 @@ func (e *internalBoolExprNaryOp) hash() uint64 {
 }
 
 func (e *internalBoolExprNaryOp) deepEq(other internalBoolExpr) bool {
-	if other.Kind() != e.kind {
+	if other.kind() != e.kind() {
 		return false
 	}
 	oe := other.(*internalBoolExprNaryOp)
@@ -865,7 +831,7 @@ func (e *internalBoolExprNaryOp) deepEq(other internalBoolExpr) bool {
 }
 
 func (e *internalBoolExprNaryOp) shallowEq(other internalBoolExpr) bool {
-	if other.Kind() != e.kind {
+	if other.kind() != e.kind() {
 		return false
 	}
 	oe := other.(*internalBoolExprNaryOp)
@@ -901,21 +867,13 @@ func mkinternalBoolExprOr(children []*BoolExprPtr) (*internalBoolExprNaryOp, err
  */
 
 type internalBoolUnArithmetic struct {
-	kind   int
+	knd    uint8
 	symbol string
 	child  *BoolExprPtr
 }
 
 func mkinternalBoolUnArithmetic(child *BoolExprPtr, kind int, symbol string) (*internalBoolUnArithmetic, error) {
-	return &internalBoolUnArithmetic{kind: kind, symbol: symbol, child: child}, nil
-}
-
-func (e *internalBoolUnArithmetic) IsTrue() bool {
-	return false
-}
-
-func (e *internalBoolUnArithmetic) IsFalse() bool {
-	return false
+	return &internalBoolUnArithmetic{knd: uint8(kind), symbol: symbol, child: child}, nil
 }
 
 func (e *internalBoolUnArithmetic) String() string {
@@ -928,19 +886,19 @@ func (e *internalBoolUnArithmetic) String() string {
 	return b.String()
 }
 
-func (e *internalBoolUnArithmetic) BoolChildren() []internalBoolExpr {
+func (e *internalBoolUnArithmetic) boolChildren() []internalBoolExpr {
 	res := make([]internalBoolExpr, 0)
 	res = append(res, e.child.e)
 	return res
 }
 
-func (e *internalBoolUnArithmetic) BVChildren() []internalBVExpr {
+func (e *internalBoolUnArithmetic) bvChildren() []internalBVExpr {
 	res := make([]internalBVExpr, 0)
 	return res
 }
 
-func (e *internalBoolUnArithmetic) Kind() int {
-	return e.kind
+func (e *internalBoolUnArithmetic) kind() int {
+	return int(e.knd)
 }
 
 func (e *internalBoolUnArithmetic) hash() uint64 {
@@ -955,7 +913,7 @@ func (e *internalBoolUnArithmetic) hash() uint64 {
 }
 
 func (e *internalBoolUnArithmetic) deepEq(other internalBoolExpr) bool {
-	if other.Kind() != e.kind {
+	if other.kind() != e.kind() {
 		return false
 	}
 	oe := other.(*internalBoolUnArithmetic)
@@ -963,7 +921,7 @@ func (e *internalBoolUnArithmetic) deepEq(other internalBoolExpr) bool {
 }
 
 func (e *internalBoolUnArithmetic) shallowEq(other internalBoolExpr) bool {
-	if other.Kind() != e.kind {
+	if other.kind() != e.kind() {
 		return false
 	}
 	oe := other.(*internalBoolUnArithmetic)
@@ -1012,22 +970,22 @@ func (e *internalBVExprExtract) String() string {
 	return b.String()
 }
 
-func (e *internalBVExprExtract) Size() uint {
+func (e *internalBVExprExtract) size() uint {
 	return e.high - e.low + 1
 }
 
-func (e *internalBVExprExtract) BVChildren() []internalBVExpr {
+func (e *internalBVExprExtract) bvChildren() []internalBVExpr {
 	res := make([]internalBVExpr, 0)
 	res = append(res, e.child.e)
 	return res
 }
 
-func (e *internalBVExprExtract) BoolChildren() []internalBoolExpr {
+func (e *internalBVExprExtract) boolChildren() []internalBoolExpr {
 	res := make([]internalBoolExpr, 0)
 	return res
 }
 
-func (e *internalBVExprExtract) Kind() int {
+func (e *internalBVExprExtract) kind() int {
 	return TY_EXTRACT
 }
 
@@ -1045,15 +1003,17 @@ func (e *internalBVExprExtract) hash() uint64 {
 }
 
 func (e *internalBVExprExtract) deepEq(other internalBVExpr) bool {
-	if other.Kind() != TY_EXTRACT {
+	if other.kind() != TY_EXTRACT {
 		return false
 	}
 	oe := other.(*internalBVExprExtract)
-	return e.child.e.deepEq(oe.child.e)
+	return e.child.e.deepEq(oe.child.e) &&
+		e.low == oe.low &&
+		e.high == oe.high
 }
 
 func (e *internalBVExprExtract) shallowEq(other internalBVExpr) bool {
-	if other.Kind() != TY_EXTRACT {
+	if other.kind() != TY_EXTRACT {
 		return false
 	}
 	oe := other.(*internalBVExprExtract)
@@ -1103,7 +1063,7 @@ func (e *internalBVExprConcat) String() string {
 	return b.String()
 }
 
-func (e *internalBVExprConcat) Size() uint {
+func (e *internalBVExprConcat) size() uint {
 	size := uint(0)
 	for i := 0; i < len(e.children); i++ {
 		size += e.children[i].Size()
@@ -1111,7 +1071,7 @@ func (e *internalBVExprConcat) Size() uint {
 	return size
 }
 
-func (e *internalBVExprConcat) BVChildren() []internalBVExpr {
+func (e *internalBVExprConcat) bvChildren() []internalBVExpr {
 	res := make([]internalBVExpr, 0)
 	for i := 0; i < len(e.children); i++ {
 		res = append(res, e.children[i].e)
@@ -1119,12 +1079,12 @@ func (e *internalBVExprConcat) BVChildren() []internalBVExpr {
 	return res
 }
 
-func (e *internalBVExprConcat) BoolChildren() []internalBoolExpr {
+func (e *internalBVExprConcat) boolChildren() []internalBoolExpr {
 	res := make([]internalBoolExpr, 0)
 	return res
 }
 
-func (e *internalBVExprConcat) Kind() int {
+func (e *internalBVExprConcat) kind() int {
 	return TY_CONCAT
 }
 
@@ -1140,7 +1100,7 @@ func (e *internalBVExprConcat) hash() uint64 {
 }
 
 func (e *internalBVExprConcat) deepEq(other internalBVExpr) bool {
-	if other.Kind() != TY_CONCAT {
+	if other.kind() != TY_CONCAT {
 		return false
 	}
 	oe := other.(*internalBVExprConcat)
@@ -1156,7 +1116,7 @@ func (e *internalBVExprConcat) deepEq(other internalBVExpr) bool {
 }
 
 func (e *internalBVExprConcat) shallowEq(other internalBVExpr) bool {
-	if other.Kind() != TY_CONCAT {
+	if other.kind() != TY_CONCAT {
 		return false
 	}
 	oe := other.(*internalBVExprConcat)
@@ -1212,22 +1172,22 @@ func (e *internalBVExprExtend) String() string {
 	return b.String()
 }
 
-func (e *internalBVExprExtend) Size() uint {
+func (e *internalBVExprExtend) size() uint {
 	return e.child.Size() + e.n
 }
 
-func (e *internalBVExprExtend) BVChildren() []internalBVExpr {
+func (e *internalBVExprExtend) bvChildren() []internalBVExpr {
 	res := make([]internalBVExpr, 0)
 	res = append(res, e.child.e)
 	return res
 }
 
-func (e *internalBVExprExtend) BoolChildren() []internalBoolExpr {
+func (e *internalBVExprExtend) boolChildren() []internalBoolExpr {
 	res := make([]internalBoolExpr, 0)
 	return res
 }
 
-func (e *internalBVExprExtend) Kind() int {
+func (e *internalBVExprExtend) kind() int {
 	if e.signed {
 		return TY_SEXT
 	}
@@ -1250,7 +1210,7 @@ func (e *internalBVExprExtend) hash() uint64 {
 }
 
 func (e *internalBVExprExtend) deepEq(other internalBVExpr) bool {
-	if other.Kind() != e.Kind() {
+	if other.kind() != e.kind() {
 		return false
 	}
 	oe := other.(*internalBVExprExtend)
@@ -1258,7 +1218,7 @@ func (e *internalBVExprExtend) deepEq(other internalBVExpr) bool {
 }
 
 func (e *internalBVExprExtend) shallowEq(other internalBVExpr) bool {
-	if other.Kind() != e.Kind() {
+	if other.kind() != e.kind() {
 		return false
 	}
 	oe := other.(*internalBVExprExtend)
@@ -1309,24 +1269,24 @@ func (e *internalBVExprITE) String() string {
 	return b.String()
 }
 
-func (e *internalBVExprITE) Size() uint {
+func (e *internalBVExprITE) size() uint {
 	return e.iftrue.Size()
 }
 
-func (e *internalBVExprITE) BVChildren() []internalBVExpr {
+func (e *internalBVExprITE) bvChildren() []internalBVExpr {
 	res := make([]internalBVExpr, 0)
 	res = append(res, e.iftrue.e)
 	res = append(res, e.iffalse.e)
 	return res
 }
 
-func (e *internalBVExprITE) BoolChildren() []internalBoolExpr {
+func (e *internalBVExprITE) boolChildren() []internalBoolExpr {
 	res := make([]internalBoolExpr, 0)
 	res = append(res, e.cond.e)
 	return res
 }
 
-func (e *internalBVExprITE) Kind() int {
+func (e *internalBVExprITE) kind() int {
 	return TY_ITE
 }
 
@@ -1346,7 +1306,7 @@ func (e *internalBVExprITE) hash() uint64 {
 }
 
 func (e *internalBVExprITE) deepEq(other internalBVExpr) bool {
-	if other.Kind() != e.Kind() {
+	if other.kind() != e.kind() {
 		return false
 	}
 	oe := other.(*internalBVExprITE)
@@ -1354,7 +1314,7 @@ func (e *internalBVExprITE) deepEq(other internalBVExpr) bool {
 }
 
 func (e *internalBVExprITE) shallowEq(other internalBVExpr) bool {
-	if other.Kind() != e.Kind() {
+	if other.kind() != e.kind() {
 		return false
 	}
 	oe := other.(*internalBVExprITE)

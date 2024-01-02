@@ -4,6 +4,14 @@ import (
 	"testing"
 )
 
+func wrapBVExpr(e internalBVExpr) *BVExprPtr {
+	return &BVExprPtr{e}
+}
+
+func wrapBoolExpr(e internalBoolExpr) *BoolExprPtr {
+	return &BoolExprPtr{e}
+}
+
 func TestAdd(t *testing.T) {
 	sym1 := mkinternalBVS("a", 32)
 	sym2 := mkinternalBVS("b", 32)

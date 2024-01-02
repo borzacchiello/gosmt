@@ -683,7 +683,7 @@ func (eb *ExprBuilder) Extract(e *BVExprPtr, high, low uint) (*BVExprPtr, error)
 	// Extract of concat
 	if e.Kind() == TY_CONCAT {
 		eInt := e.e.(*internalBVExprConcat)
-		off := eInt.Size()
+		off := e.Size()
 		for i := 0; i < len(eInt.children); i++ {
 			child := eInt.children[i]
 			off -= child.Size()
