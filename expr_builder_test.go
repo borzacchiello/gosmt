@@ -228,3 +228,15 @@ func TestBool1(t *testing.T) {
 		return
 	}
 }
+
+func TestBVCompare(t *testing.T) {
+	eb := NewExprBuilder()
+
+	a := eb.BVS("a", 64)
+	b := eb.BVS("b", 64)
+	e, _ := eb.Ule(a, b)
+	if e.String() != "a u<= b" {
+		t.Error("invalid expression")
+		return
+	}
+}

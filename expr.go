@@ -945,22 +945,22 @@ func mkinternalBoolNot(e *BoolExprPtr) (*internalBoolUnArithmetic, error) {
  *  TY_EXTRACT
  */
 
-type internalBVExtract struct {
-	child     BVExprPtr
+type internalBVExprExtract struct {
+	child     *BVExprPtr
 	high, low uint
 }
 
-func mkinternalBVExtract(child BVExprPtr, high, low uint) (*internalBVExtract, error) {
+func mkinternalBVExprExtract(child *BVExprPtr, high, low uint) (*internalBVExprExtract, error) {
 	if high < low {
-		return nil, fmt.Errorf("mkinternalBVExtract(): high < low")
+		return nil, fmt.Errorf("mkinternalBVExprExtract(): high < low")
 	}
 	if child.Size() < high-low+1 {
-		return nil, fmt.Errorf("mkinternalBVExtract(): high-low+1 > child.Size")
+		return nil, fmt.Errorf("mkinternalBVExprExtract(): high-low+1 > child.Size")
 	}
-	return &internalBVExtract{child: child, high: high, low: low}, nil
+	return &internalBVExprExtract{child: child, high: high, low: low}, nil
 }
 
-func (e *internalBVExtract) String() string {
+func (e *internalBVExprExtract) String() string {
 	b := strings.Builder{}
 	if e.child.e.isLeaf() {
 		b.WriteString(e.child.String())
@@ -971,21 +971,21 @@ func (e *internalBVExtract) String() string {
 	return b.String()
 }
 
-func (e *internalBVExtract) Size() uint {
+func (e *internalBVExprExtract) Size() uint {
 	return e.high - e.low + 1
 }
 
-func (e *internalBVExtract) Children() []internalExpr {
+func (e *internalBVExprExtract) Children() []internalExpr {
 	res := make([]internalExpr, 0)
 	res = append(res, e.child.e)
 	return res
 }
 
-func (e *internalBVExtract) Kind() int {
+func (e *internalBVExprExtract) Kind() int {
 	return TY_EXTRACT
 }
 
-func (e *internalBVExtract) hash() uint64 {
+func (e *internalBVExprExtract) hash() uint64 {
 	h := xxhash.New()
 	h.Write([]byte("TY_EXTRACT"))
 	raw := make([]byte, 8)
@@ -994,27 +994,27 @@ func (e *internalBVExtract) hash() uint64 {
 	return h.Sum64()
 }
 
-func (e *internalBVExtract) deepEq(other internalExpr) bool {
+func (e *internalBVExprExtract) deepEq(other internalExpr) bool {
 	if other.Kind() != TY_EXTRACT {
 		return false
 	}
-	oe := other.(*internalBVExtract)
+	oe := other.(*internalBVExprExtract)
 	return e.child.e.deepEq(oe.child.e)
 }
 
-func (e *internalBVExtract) shallowEq(other internalExpr) bool {
+func (e *internalBVExprExtract) shallowEq(other internalExpr) bool {
 	if other.Kind() != TY_EXTRACT {
 		return false
 	}
-	oe := other.(*internalBVExtract)
+	oe := other.(*internalBVExprExtract)
 	return e.child.e.rawPtr() == oe.child.e.rawPtr()
 }
 
-func (e *internalBVExtract) isLeaf() bool {
+func (e *internalBVExprExtract) isLeaf() bool {
 	return false
 }
 
-func (e *internalBVExtract) rawPtr() uintptr {
+func (e *internalBVExprExtract) rawPtr() uintptr {
 	return uintptr(unsafe.Pointer(e))
 }
 
@@ -1133,6 +1133,9 @@ type internalBVExprExtend struct {
 }
 
 func mkinternalBVExprExtend(child *BVExprPtr, signed bool, n uint) (*internalBVExprExtend, error) {
+	if n == 0 {
+		return nil, fmt.Errorf("trying to create a BVExpreExtend with n == 0")
+	}
 	return &internalBVExprExtend{child: child, n: n, signed: signed}, nil
 }
 

@@ -645,6 +645,264 @@ func (eb *ExprBuilder) AShr(lhs, rhs *BVExprPtr) (*BVExprPtr, error) {
 	return eb.getOrCreateBV(ex), nil
 }
 
+func (eb *ExprBuilder) Extract(e *BVExprPtr, high, low uint) (*BVExprPtr, error) {
+	if high < low {
+		return nil, fmt.Errorf("high < low")
+	}
+	if e.Size() < high-low+1 {
+		return nil, fmt.Errorf("high-low+1 > e.Size")
+	}
+
+	// Reduntant extract
+	if low == 0 && high == e.Size()-1 {
+		return e, nil
+	}
+
+	// Constant propagation
+	if e.IsConst() {
+		c, _ := e.GetConst()
+		err := c.Truncate(high, low)
+		if err != nil {
+			return nil, err
+		}
+		return eb.getOrCreateBV(mkinternalBVVFromConst(*c)), nil
+	}
+
+	// Extract of extract
+	if e.Kind() == TY_EXTRACT {
+		eInt := e.e.(*internalBVExprExtract)
+		newLow := low + eInt.low
+		newHigh := high + eInt.high
+		ex, err := mkinternalBVExprExtract(eInt.child, newHigh, newLow)
+		if err != nil {
+			return nil, err
+		}
+		return eb.getOrCreateBV(ex), nil
+	}
+
+	// Extract of concat
+	if e.Kind() == TY_CONCAT {
+		eInt := e.e.(*internalBVExprConcat)
+		off := eInt.Size()
+		for i := 0; i < len(eInt.children); i++ {
+			child := eInt.children[i]
+			off -= child.Size()
+			concatHigh := child.Size() + off - 1
+			concatLow := off
+			if concatHigh >= high && low >= concatLow {
+				return eb.Extract(child, high-off, low-off)
+			}
+		}
+	}
+
+	// Extract of ZEXT
+	if e.Kind() == TY_ZEXT {
+		eInt := e.e.(*internalBVExprExtend)
+		if low == 0 && high == eInt.child.Size()-1 {
+			return eInt.child, nil
+		}
+		if low >= eInt.child.Size() {
+			return eb.BVV(0, high-low+1), nil
+		}
+		ex, err := eb.Extract(eInt.child, min(high, eInt.child.Size()-1), low)
+		if err != nil {
+			return nil, err
+		}
+		return eb.ZExt(ex, high-low+1-ex.Size())
+	}
+
+	// Extract of SEXT
+	if e.Kind() == TY_SEXT {
+		eInt := e.e.(*internalBVExprExtend)
+		if low == 0 && high == eInt.child.Size()-1 {
+			return eInt.child, nil
+		}
+		if high < eInt.child.Size() {
+			return eb.Extract(eInt.child, high, low)
+		}
+	}
+
+	ex, err := mkinternalBVExprExtract(e, high, low)
+	if err != nil {
+		return nil, err
+	}
+	return eb.getOrCreateBV(ex), nil
+}
+
+func (eb *ExprBuilder) ZExt(e *BVExprPtr, n uint) (*BVExprPtr, error) {
+	// Unnecessary ZExt
+	if n == 0 {
+		return e, nil
+	}
+
+	// ZExt of ZExt
+	if e.Kind() == TY_ZEXT {
+		eInt := e.e.(*internalBVExprExtend)
+		return eb.ZExt(eInt.child, eInt.n+n)
+	}
+
+	// Constant propagation
+	if e.IsConst() {
+		c, _ := e.GetConst()
+		c.ZExt(n)
+		return eb.getOrCreateBV(mkinternalBVVFromConst(*c)), nil
+	}
+
+	ex, err := mkinternalBVExprZExt(e, n)
+	if err != nil {
+		return nil, err
+	}
+	return eb.getOrCreateBV(ex), nil
+}
+
+func (eb *ExprBuilder) SExt(e *BVExprPtr, n uint) (*BVExprPtr, error) {
+	// Unnecessary SExt
+	if n == 0 {
+		return e, nil
+	}
+
+	// SExt of SExt
+	if e.Kind() == TY_SEXT {
+		eInt := e.e.(*internalBVExprExtend)
+		return eb.SExt(eInt.child, eInt.n+n)
+	}
+
+	// SExt of ZExt
+	if e.Kind() == TY_ZEXT {
+		eInt := e.e.(*internalBVExprExtend)
+		if eInt.n == 0 {
+			panic("zext with n==0")
+		}
+		return eb.ZExt(eInt.child, eInt.n+n)
+	}
+
+	// Constant propagation
+	if e.IsConst() {
+		c, _ := e.GetConst()
+		c.SExt(n)
+		return eb.getOrCreateBV(mkinternalBVVFromConst(*c)), nil
+	}
+
+	ex, err := mkinternalBVExprSExt(e, n)
+	if err != nil {
+		return nil, err
+	}
+	return eb.getOrCreateBV(ex), nil
+}
+
+func (eb *ExprBuilder) Concat(lhs, rhs *BVExprPtr) (*BVExprPtr, error) {
+	// Pattern SExt(EXPR)[high:EXPR.size] # EXPR ==> sext(EXPR)
+	if lhs.Kind() == TY_EXTRACT {
+		lhsInt := lhs.e.(*internalBVExprExtract)
+		if lhsInt.low == rhs.Size() && lhsInt.child.Kind() == TY_SEXT {
+			lhsChildInt := lhsInt.child.e.(*internalBVExprExtend)
+			if lhsChildInt.child.Id() == rhs.Id() {
+				return eb.SExt(rhs, lhs.Size())
+			}
+		}
+	}
+
+	// Pattern sext(EXPR)[high:N] # sext(EXPR, N) ==> sext(EXPR)
+	if lhs.Kind() == TY_EXTRACT && rhs.Kind() == TY_SEXT {
+		lhsInt := lhs.e.(*internalBVExprExtract)
+		rhsInt := rhs.e.(*internalBVExprExtend)
+		if lhsInt.low == rhs.Size() && lhsInt.child.Kind() == TY_SEXT {
+			lhsChildInt := lhsInt.child.e.(*internalBVExprExtend)
+			if lhsChildInt.child.Id() == rhsInt.child.Id() {
+				return eb.SExt(rhsInt.child, lhs.Size())
+			}
+		}
+	}
+
+	// Flatten arguments
+	children := make([]*BVExprPtr, 0)
+	if lhs.Kind() == TY_EXTRACT {
+		lhsInner := lhs.e.(*internalBVExprConcat)
+		children = append(children, lhsInner.children...)
+	} else {
+		children = append(children, lhs)
+	}
+	if rhs.Kind() == TY_EXTRACT {
+		rhsInner := rhs.e.(*internalBVExprConcat)
+		children = append(children, rhsInner.children...)
+	} else {
+		children = append(children, rhs)
+	}
+
+	// Constant propagation
+	constpropChildren := make([]*BVExprPtr, 0)
+	for i := 0; i < len(children); i += 1 {
+		child := children[i]
+		if child.IsConst() {
+			conc, _ := child.GetConst()
+
+			var j int
+			for j = i + 1; j < len(children); j++ {
+				nextChild := children[j]
+				if !nextChild.IsConst() {
+					break
+				}
+				nextConc, _ := nextChild.GetConst()
+				conc.Concat(nextConc)
+			}
+			i = j - 1
+			constpropChildren = append(
+				constpropChildren, eb.getOrCreateBV(mkinternalBVVFromConst(*conc)))
+		} else {
+			constpropChildren = append(constpropChildren, child)
+		}
+	}
+
+	// Concat of Extract
+	mergedExtractChildren := make([]*BVExprPtr, 0)
+	for i := 0; i < len(constpropChildren); i += 1 {
+		child := constpropChildren[i]
+		if child.Kind() == TY_EXTRACT {
+			childInt := child.e.(*internalBVExprExtract)
+
+			high := childInt.high
+			low := childInt.low
+
+			var j int
+			for j := i + 1; j < len(constpropChildren); j++ {
+				nextChild := children[j]
+				if nextChild.Kind() != TY_EXTRACT {
+					break
+				}
+				nextChildInt := nextChild.e.(*internalBVExprExtract)
+				if nextChildInt.child.Id() != child.Id() {
+					break
+				}
+				if low != nextChildInt.high+1 {
+					break
+				}
+				low = nextChildInt.low
+			}
+			i = j - 1
+			ex, err := eb.Extract(childInt.child, high, low)
+			if err != nil {
+				return nil, err
+			}
+			mergedExtractChildren = append(mergedExtractChildren, ex)
+		} else {
+			mergedExtractChildren = append(mergedExtractChildren, child)
+		}
+	}
+
+	if len(mergedExtractChildren) == 0 {
+		panic("concat has no children")
+	}
+	if len(mergedExtractChildren) == 1 {
+		return mergedExtractChildren[0], nil
+	}
+
+	ex, err := mkinternalBVExprConcat(mergedExtractChildren)
+	if err != nil {
+		return nil, err
+	}
+	return eb.getOrCreateBV(ex), nil
+}
+
 func (eb *ExprBuilder) UDiv(lhs, rhs *BVExprPtr) (*BVExprPtr, error) {
 	if lhs.Size() != rhs.Size() {
 		return nil, fmt.Errorf("different sizes")
@@ -769,6 +1027,27 @@ func (eb *ExprBuilder) SRem(lhs, rhs *BVExprPtr) (*BVExprPtr, error) {
 	}
 
 	ex, err := mkinternalBVExprSrem(lhs, rhs)
+	if err != nil {
+		return nil, err
+	}
+	return eb.getOrCreateBV(ex), nil
+}
+
+func (eb *ExprBuilder) ITE(guard *BoolExprPtr, iftrue *BVExprPtr, iffalse *BVExprPtr) (*BVExprPtr, error) {
+	if iftrue.Size() != iffalse.Size() {
+		return nil, fmt.Errorf("invalid sizes in ITE")
+	}
+
+	// Constant propagation
+	if guard.IsConst() {
+		g, _ := guard.GetConst()
+		if g {
+			return iftrue, nil
+		}
+		return iffalse, nil
+	}
+
+	ex, err := mkinternalBVExprITE(guard, iftrue, iffalse)
 	if err != nil {
 		return nil, err
 	}

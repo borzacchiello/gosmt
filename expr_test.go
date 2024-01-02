@@ -71,14 +71,32 @@ func TestArithmetic(t *testing.T) {
 	}
 }
 
-func TestBVCompare(t *testing.T) {
-	eb := NewExprBuilder()
+func TestBoolAnd(t *testing.T) {
+	sym1 := wrapBVExpr(mkinternalBVS("a", 32))
+	sym2 := wrapBVExpr(mkinternalBVS("b", 32))
 
-	a := eb.BVS("a", 64)
-	b := eb.BVS("b", 64)
-	e, _ := eb.Ule(a, b)
-	if e.String() != "a u<= b" {
-		t.Error("invalid expression")
+	cmp1, err := mkinternalBoolExprSge(sym1, sym2)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	cmp2, err := mkinternalBoolExprEq(sym1, wrapBVExpr(mkinternalBVV(0, 32)))
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	cc := make([]*BoolExprPtr, 0)
+	cc = append(cc, wrapBoolExpr(cmp1))
+	cc = append(cc, wrapBoolExpr(cmp2))
+	andExpr, err := mkinternalBoolAnd(cc)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	if andExpr.String() != "(a s>= b) && (a == 0x0)" {
+		t.Error("unexpected expression")
 		return
 	}
 }
