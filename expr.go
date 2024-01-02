@@ -163,29 +163,33 @@ func (e *BoolExprPtr) Kind() int {
  *   Private Interface
  */
 
-type internalExpr interface {
+type internalBVExpr interface {
 	Kind() int
 	String() string
-	Children() []internalExpr
+	BVChildren() []internalBVExpr
+	BoolChildren() []internalBoolExpr
+	Size() uint
 
 	isLeaf() bool
 	rawPtr() uintptr
 	hash() uint64
-	deepEq(internalExpr) bool
-	shallowEq(internalExpr) bool
-}
-
-type internalBVExpr interface {
-	internalExpr
-
-	Size() uint
+	deepEq(internalBVExpr) bool
+	shallowEq(internalBVExpr) bool
 }
 
 type internalBoolExpr interface {
-	internalExpr
-
+	Kind() int
+	String() string
+	BVChildren() []internalBVExpr
+	BoolChildren() []internalBoolExpr
 	IsTrue() bool
 	IsFalse() bool
+
+	isLeaf() bool
+	rawPtr() uintptr
+	hash() uint64
+	deepEq(internalBoolExpr) bool
+	shallowEq(internalBoolExpr) bool
 }
 
 /*
@@ -212,8 +216,12 @@ func (bvv *internalBVV) Size() uint {
 	return bvv.Value.Size
 }
 
-func (bvv *internalBVV) Children() []internalExpr {
-	return make([]internalExpr, 0)
+func (bvv *internalBVV) BVChildren() []internalBVExpr {
+	return make([]internalBVExpr, 0)
+}
+
+func (bvv *internalBVV) BoolChildren() []internalBoolExpr {
+	return make([]internalBoolExpr, 0)
 }
 
 func (bvv *internalBVV) Kind() int {
@@ -229,7 +237,7 @@ func (bvv *internalBVV) hash() uint64 {
 	return bvv.Value.AsULong()
 }
 
-func (bvv *internalBVV) deepEq(other internalExpr) bool {
+func (bvv *internalBVV) deepEq(other internalBVExpr) bool {
 	if other.Kind() != TY_CONST {
 		return false
 	}
@@ -241,7 +249,7 @@ func (bvv *internalBVV) deepEq(other internalExpr) bool {
 	return true
 }
 
-func (bvv *internalBVV) shallowEq(other internalExpr) bool {
+func (bvv *internalBVV) shallowEq(other internalBVExpr) bool {
 	return bvv.deepEq(other)
 }
 
@@ -280,8 +288,12 @@ func (b *internalBoolVal) String() string {
 	return b.Value.String()
 }
 
-func (b *internalBoolVal) Children() []internalExpr {
-	return make([]internalExpr, 0)
+func (b *internalBoolVal) BVChildren() []internalBVExpr {
+	return make([]internalBVExpr, 0)
+}
+
+func (b *internalBoolVal) BoolChildren() []internalBoolExpr {
+	return make([]internalBoolExpr, 0)
 }
 
 func (b *internalBoolVal) Kind() int {
@@ -295,7 +307,7 @@ func (b *internalBoolVal) hash() uint64 {
 	return 0
 }
 
-func (b *internalBoolVal) deepEq(other internalExpr) bool {
+func (b *internalBoolVal) deepEq(other internalBoolExpr) bool {
 	if other.Kind() != TY_BOOL_CONST {
 		return false
 	}
@@ -303,7 +315,7 @@ func (b *internalBoolVal) deepEq(other internalExpr) bool {
 	return ob.Value.Value == b.Value.Value
 }
 
-func (b *internalBoolVal) shallowEq(other internalExpr) bool {
+func (b *internalBoolVal) shallowEq(other internalBoolExpr) bool {
 	return b.deepEq(other)
 }
 
@@ -336,8 +348,12 @@ func (bvs *internalBVS) Size() uint {
 	return bvs.size
 }
 
-func (bvs *internalBVS) Children() []internalExpr {
-	return make([]internalExpr, 0)
+func (bvs *internalBVS) BVChildren() []internalBVExpr {
+	return make([]internalBVExpr, 0)
+}
+
+func (bvs *internalBVS) BoolChildren() []internalBoolExpr {
+	return make([]internalBoolExpr, 0)
 }
 
 func (bvs *internalBVS) Kind() int {
@@ -353,7 +369,7 @@ func (bvs *internalBVS) hash() uint64 {
 	return h.Sum64()
 }
 
-func (bvs *internalBVS) deepEq(other internalExpr) bool {
+func (bvs *internalBVS) deepEq(other internalBVExpr) bool {
 	if other.Kind() != TY_SYM {
 		return false
 	}
@@ -361,7 +377,7 @@ func (bvs *internalBVS) deepEq(other internalExpr) bool {
 	return obvs.size == bvs.size && obvs.Name == bvs.Name
 }
 
-func (bvs *internalBVS) shallowEq(other internalExpr) bool {
+func (bvs *internalBVS) shallowEq(other internalBVExpr) bool {
 	return bvs.deepEq(other)
 }
 
@@ -416,11 +432,16 @@ func (e *internalBVExprBinArithmetic) Size() uint {
 	return e.children[0].Size()
 }
 
-func (e *internalBVExprBinArithmetic) Children() []internalExpr {
-	res := make([]internalExpr, 0)
+func (e *internalBVExprBinArithmetic) BVChildren() []internalBVExpr {
+	res := make([]internalBVExpr, 0)
 	for i := 0; i < len(e.children); i++ {
 		res = append(res, e.children[i].e)
 	}
+	return res
+}
+
+func (e *internalBVExprBinArithmetic) BoolChildren() []internalBoolExpr {
+	res := make([]internalBoolExpr, 0)
 	return res
 }
 
@@ -439,7 +460,7 @@ func (e *internalBVExprBinArithmetic) hash() uint64 {
 	return h.Sum64()
 }
 
-func (e *internalBVExprBinArithmetic) deepEq(other internalExpr) bool {
+func (e *internalBVExprBinArithmetic) deepEq(other internalBVExpr) bool {
 	if other.Kind() != e.kind {
 		return false
 	}
@@ -455,7 +476,7 @@ func (e *internalBVExprBinArithmetic) deepEq(other internalExpr) bool {
 	return true
 }
 
-func (e *internalBVExprBinArithmetic) shallowEq(other internalExpr) bool {
+func (e *internalBVExprBinArithmetic) shallowEq(other internalBVExpr) bool {
 	if other.Kind() != e.kind {
 		return false
 	}
@@ -565,9 +586,14 @@ func (e *internalBVExprUnArithmetic) Size() uint {
 	return e.child.Size()
 }
 
-func (e *internalBVExprUnArithmetic) Children() []internalExpr {
-	res := make([]internalExpr, 0)
+func (e *internalBVExprUnArithmetic) BVChildren() []internalBVExpr {
+	res := make([]internalBVExpr, 0)
 	res = append(res, e.child.e)
+	return res
+}
+
+func (e *internalBVExprUnArithmetic) BoolChildren() []internalBoolExpr {
+	res := make([]internalBoolExpr, 0)
 	return res
 }
 
@@ -584,7 +610,7 @@ func (e *internalBVExprUnArithmetic) hash() uint64 {
 	return h.Sum64()
 }
 
-func (e *internalBVExprUnArithmetic) deepEq(other internalExpr) bool {
+func (e *internalBVExprUnArithmetic) deepEq(other internalBVExpr) bool {
 	if other.Kind() != e.kind {
 		return false
 	}
@@ -592,7 +618,7 @@ func (e *internalBVExprUnArithmetic) deepEq(other internalExpr) bool {
 	return e.child.e.deepEq(oe.child.e)
 }
 
-func (e *internalBVExprUnArithmetic) shallowEq(other internalExpr) bool {
+func (e *internalBVExprUnArithmetic) shallowEq(other internalBVExpr) bool {
 	if other.Kind() != e.kind {
 		return false
 	}
@@ -658,10 +684,15 @@ func (e *internalBoolExprCmp) String() string {
 	return b.String()
 }
 
-func (e *internalBoolExprCmp) Children() []internalExpr {
-	res := make([]internalExpr, 0)
+func (e *internalBoolExprCmp) BVChildren() []internalBVExpr {
+	res := make([]internalBVExpr, 0)
 	res = append(res, e.lhs.e)
 	res = append(res, e.rhs.e)
+	return res
+}
+
+func (e *internalBoolExprCmp) BoolChildren() []internalBoolExpr {
+	res := make([]internalBoolExpr, 0)
 	return res
 }
 
@@ -682,7 +713,7 @@ func (e *internalBoolExprCmp) hash() uint64 {
 	return h.Sum64()
 }
 
-func (e *internalBoolExprCmp) deepEq(other internalExpr) bool {
+func (e *internalBoolExprCmp) deepEq(other internalBoolExpr) bool {
 	if other.Kind() != e.kind {
 		return false
 	}
@@ -696,7 +727,7 @@ func (e *internalBoolExprCmp) deepEq(other internalExpr) bool {
 	return true
 }
 
-func (e *internalBoolExprCmp) shallowEq(other internalExpr) bool {
+func (e *internalBoolExprCmp) shallowEq(other internalBoolExpr) bool {
 	if other.Kind() != e.kind {
 		return false
 	}
@@ -787,8 +818,13 @@ func (e *internalBoolExprNaryOp) String() string {
 	return b.String()
 }
 
-func (e *internalBoolExprNaryOp) Children() []internalExpr {
-	res := make([]internalExpr, 0)
+func (e *internalBoolExprNaryOp) BVChildren() []internalBVExpr {
+	res := make([]internalBVExpr, 0)
+	return res
+}
+
+func (e *internalBoolExprNaryOp) BoolChildren() []internalBoolExpr {
+	res := make([]internalBoolExpr, 0)
 	for i := 0; i < len(e.children); i++ {
 		res = append(res, e.children[i].e)
 	}
@@ -811,7 +847,7 @@ func (e *internalBoolExprNaryOp) hash() uint64 {
 	return h.Sum64()
 }
 
-func (e *internalBoolExprNaryOp) deepEq(other internalExpr) bool {
+func (e *internalBoolExprNaryOp) deepEq(other internalBoolExpr) bool {
 	if other.Kind() != e.kind {
 		return false
 	}
@@ -828,7 +864,7 @@ func (e *internalBoolExprNaryOp) deepEq(other internalExpr) bool {
 	return true
 }
 
-func (e *internalBoolExprNaryOp) shallowEq(other internalExpr) bool {
+func (e *internalBoolExprNaryOp) shallowEq(other internalBoolExpr) bool {
 	if other.Kind() != e.kind {
 		return false
 	}
@@ -892,9 +928,14 @@ func (e *internalBoolUnArithmetic) String() string {
 	return b.String()
 }
 
-func (e *internalBoolUnArithmetic) Children() []internalExpr {
-	res := make([]internalExpr, 0)
+func (e *internalBoolUnArithmetic) BoolChildren() []internalBoolExpr {
+	res := make([]internalBoolExpr, 0)
 	res = append(res, e.child.e)
+	return res
+}
+
+func (e *internalBoolUnArithmetic) BVChildren() []internalBVExpr {
+	res := make([]internalBVExpr, 0)
 	return res
 }
 
@@ -913,7 +954,7 @@ func (e *internalBoolUnArithmetic) hash() uint64 {
 	return h.Sum64()
 }
 
-func (e *internalBoolUnArithmetic) deepEq(other internalExpr) bool {
+func (e *internalBoolUnArithmetic) deepEq(other internalBoolExpr) bool {
 	if other.Kind() != e.kind {
 		return false
 	}
@@ -921,7 +962,7 @@ func (e *internalBoolUnArithmetic) deepEq(other internalExpr) bool {
 	return e.child.e.deepEq(oe.child.e)
 }
 
-func (e *internalBoolUnArithmetic) shallowEq(other internalExpr) bool {
+func (e *internalBoolUnArithmetic) shallowEq(other internalBoolExpr) bool {
 	if other.Kind() != e.kind {
 		return false
 	}
@@ -975,9 +1016,14 @@ func (e *internalBVExprExtract) Size() uint {
 	return e.high - e.low + 1
 }
 
-func (e *internalBVExprExtract) Children() []internalExpr {
-	res := make([]internalExpr, 0)
+func (e *internalBVExprExtract) BVChildren() []internalBVExpr {
+	res := make([]internalBVExpr, 0)
 	res = append(res, e.child.e)
+	return res
+}
+
+func (e *internalBVExprExtract) BoolChildren() []internalBoolExpr {
+	res := make([]internalBoolExpr, 0)
 	return res
 }
 
@@ -998,7 +1044,7 @@ func (e *internalBVExprExtract) hash() uint64 {
 	return h.Sum64()
 }
 
-func (e *internalBVExprExtract) deepEq(other internalExpr) bool {
+func (e *internalBVExprExtract) deepEq(other internalBVExpr) bool {
 	if other.Kind() != TY_EXTRACT {
 		return false
 	}
@@ -1006,7 +1052,7 @@ func (e *internalBVExprExtract) deepEq(other internalExpr) bool {
 	return e.child.e.deepEq(oe.child.e)
 }
 
-func (e *internalBVExprExtract) shallowEq(other internalExpr) bool {
+func (e *internalBVExprExtract) shallowEq(other internalBVExpr) bool {
 	if other.Kind() != TY_EXTRACT {
 		return false
 	}
@@ -1065,11 +1111,16 @@ func (e *internalBVExprConcat) Size() uint {
 	return size
 }
 
-func (e *internalBVExprConcat) Children() []internalExpr {
-	res := make([]internalExpr, 0)
+func (e *internalBVExprConcat) BVChildren() []internalBVExpr {
+	res := make([]internalBVExpr, 0)
 	for i := 0; i < len(e.children); i++ {
 		res = append(res, e.children[i].e)
 	}
+	return res
+}
+
+func (e *internalBVExprConcat) BoolChildren() []internalBoolExpr {
+	res := make([]internalBoolExpr, 0)
 	return res
 }
 
@@ -1088,7 +1139,7 @@ func (e *internalBVExprConcat) hash() uint64 {
 	return h.Sum64()
 }
 
-func (e *internalBVExprConcat) deepEq(other internalExpr) bool {
+func (e *internalBVExprConcat) deepEq(other internalBVExpr) bool {
 	if other.Kind() != TY_CONCAT {
 		return false
 	}
@@ -1104,7 +1155,7 @@ func (e *internalBVExprConcat) deepEq(other internalExpr) bool {
 	return true
 }
 
-func (e *internalBVExprConcat) shallowEq(other internalExpr) bool {
+func (e *internalBVExprConcat) shallowEq(other internalBVExpr) bool {
 	if other.Kind() != TY_CONCAT {
 		return false
 	}
@@ -1165,9 +1216,14 @@ func (e *internalBVExprExtend) Size() uint {
 	return e.child.Size() + e.n
 }
 
-func (e *internalBVExprExtend) Children() []internalExpr {
-	res := make([]internalExpr, 0)
+func (e *internalBVExprExtend) BVChildren() []internalBVExpr {
+	res := make([]internalBVExpr, 0)
 	res = append(res, e.child.e)
+	return res
+}
+
+func (e *internalBVExprExtend) BoolChildren() []internalBoolExpr {
+	res := make([]internalBoolExpr, 0)
 	return res
 }
 
@@ -1193,7 +1249,7 @@ func (e *internalBVExprExtend) hash() uint64 {
 	return h.Sum64()
 }
 
-func (e *internalBVExprExtend) deepEq(other internalExpr) bool {
+func (e *internalBVExprExtend) deepEq(other internalBVExpr) bool {
 	if other.Kind() != e.Kind() {
 		return false
 	}
@@ -1201,7 +1257,7 @@ func (e *internalBVExprExtend) deepEq(other internalExpr) bool {
 	return e.n == oe.n && e.child.e.deepEq(oe.child.e)
 }
 
-func (e *internalBVExprExtend) shallowEq(other internalExpr) bool {
+func (e *internalBVExprExtend) shallowEq(other internalBVExpr) bool {
 	if other.Kind() != e.Kind() {
 		return false
 	}
@@ -1257,11 +1313,16 @@ func (e *internalBVExprITE) Size() uint {
 	return e.iftrue.Size()
 }
 
-func (e *internalBVExprITE) Children() []internalExpr {
-	res := make([]internalExpr, 0)
-	res = append(res, e.cond.e)
+func (e *internalBVExprITE) BVChildren() []internalBVExpr {
+	res := make([]internalBVExpr, 0)
 	res = append(res, e.iftrue.e)
 	res = append(res, e.iffalse.e)
+	return res
+}
+
+func (e *internalBVExprITE) BoolChildren() []internalBoolExpr {
+	res := make([]internalBoolExpr, 0)
+	res = append(res, e.cond.e)
 	return res
 }
 
@@ -1284,7 +1345,7 @@ func (e *internalBVExprITE) hash() uint64 {
 	return h.Sum64()
 }
 
-func (e *internalBVExprITE) deepEq(other internalExpr) bool {
+func (e *internalBVExprITE) deepEq(other internalBVExpr) bool {
 	if other.Kind() != e.Kind() {
 		return false
 	}
@@ -1292,7 +1353,7 @@ func (e *internalBVExprITE) deepEq(other internalExpr) bool {
 	return e.cond.e.deepEq(oe.cond.e) && e.iftrue.e.deepEq(oe.iftrue.e) && e.iffalse.e.deepEq(oe.iffalse.e)
 }
 
-func (e *internalBVExprITE) shallowEq(other internalExpr) bool {
+func (e *internalBVExprITE) shallowEq(other internalBVExpr) bool {
 	if other.Kind() != e.Kind() {
 		return false
 	}
