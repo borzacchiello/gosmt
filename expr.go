@@ -991,6 +991,10 @@ func (e *internalBVExprExtract) hash() uint64 {
 	raw := make([]byte, 8)
 	binary.BigEndian.PutUint64(raw, uint64(e.child.e.rawPtr()))
 	h.Write(raw)
+	binary.BigEndian.PutUint64(raw, uint64(e.low))
+	h.Write(raw)
+	binary.BigEndian.PutUint64(raw, uint64(e.high))
+	h.Write(raw)
 	return h.Sum64()
 }
 
@@ -1007,7 +1011,9 @@ func (e *internalBVExprExtract) shallowEq(other internalExpr) bool {
 		return false
 	}
 	oe := other.(*internalBVExprExtract)
-	return e.child.e.rawPtr() == oe.child.e.rawPtr()
+	return e.child.e.rawPtr() == oe.child.e.rawPtr() &&
+		e.low == oe.low &&
+		e.high == oe.high
 }
 
 func (e *internalBVExprExtract) isLeaf() bool {
@@ -1043,9 +1049,9 @@ func (e *internalBVExprConcat) String() string {
 
 	for i := 1; i < len(e.children); i++ {
 		if e.children[i].e.isLeaf() {
-			b.WriteString(fmt.Sprintf(".. %s", e.children[i].String()))
+			b.WriteString(fmt.Sprintf(" .. %s", e.children[i].String()))
 		} else {
-			b.WriteString(fmt.Sprintf(".. (%s)", e.children[i].String()))
+			b.WriteString(fmt.Sprintf(" .. (%s)", e.children[i].String()))
 		}
 	}
 	return b.String()

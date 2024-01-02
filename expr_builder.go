@@ -816,13 +816,13 @@ func (eb *ExprBuilder) Concat(lhs, rhs *BVExprPtr) (*BVExprPtr, error) {
 
 	// Flatten arguments
 	children := make([]*BVExprPtr, 0)
-	if lhs.Kind() == TY_EXTRACT {
+	if lhs.Kind() == TY_CONCAT {
 		lhsInner := lhs.e.(*internalBVExprConcat)
 		children = append(children, lhsInner.children...)
 	} else {
 		children = append(children, lhs)
 	}
-	if rhs.Kind() == TY_EXTRACT {
+	if rhs.Kind() == TY_CONCAT {
 		rhsInner := rhs.e.(*internalBVExprConcat)
 		children = append(children, rhsInner.children...)
 	} else {
@@ -864,13 +864,13 @@ func (eb *ExprBuilder) Concat(lhs, rhs *BVExprPtr) (*BVExprPtr, error) {
 			low := childInt.low
 
 			var j int
-			for j := i + 1; j < len(constpropChildren); j++ {
+			for j = i + 1; j < len(constpropChildren); j++ {
 				nextChild := children[j]
 				if nextChild.Kind() != TY_EXTRACT {
 					break
 				}
 				nextChildInt := nextChild.e.(*internalBVExprExtract)
-				if nextChildInt.child.Id() != child.Id() {
+				if nextChildInt.child.Id() != childInt.child.Id() {
 					break
 				}
 				if low != nextChildInt.high+1 {

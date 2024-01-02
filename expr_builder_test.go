@@ -5,6 +5,22 @@ import (
 	"testing"
 )
 
+func isErr(t *testing.T, err error) bool {
+	if err != nil {
+		t.Error(err)
+		return true
+	}
+	return false
+}
+
+func getByte(t *testing.T, eb *ExprBuilder, expr *BVExprPtr, i uint) *BVExprPtr {
+	b, err := eb.Extract(expr, (i+1)*8-1, i*8)
+	if isErr(t, err) {
+		return nil
+	}
+	return b
+}
+
 func TestCache1(t *testing.T) {
 	eb := NewExprBuilder()
 
@@ -237,6 +253,38 @@ func TestBVCompare(t *testing.T) {
 	e, _ := eb.Ule(a, b)
 	if e.String() != "a u<= b" {
 		t.Error("invalid expression")
+		return
+	}
+}
+
+func TestConcat1(t *testing.T) {
+	eb := NewExprBuilder()
+
+	a := eb.BVS("a", 32)
+	p1 := getByte(t, eb, a, 0)
+	p2 := getByte(t, eb, a, 1)
+	p3 := getByte(t, eb, a, 2)
+	p4 := getByte(t, eb, a, 3)
+
+	if p1 == nil || p2 == nil || p3 == nil || p4 == nil {
+		return
+	}
+
+	c, err := eb.Concat(p4, p3)
+	if isErr(t, err) {
+		return
+	}
+	c, err = eb.Concat(c, p2)
+	if isErr(t, err) {
+		return
+	}
+	c, err = eb.Concat(c, p1)
+	if isErr(t, err) {
+		return
+	}
+
+	if c.String() != "a" {
+		t.Error("Unable to simplify concat")
 		return
 	}
 }
