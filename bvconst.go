@@ -382,7 +382,7 @@ func (bv *BVConst) Eq(o *BVConst) (BoolConst, error) {
 		return BoolTrue(), fmt.Errorf("different sizes %d and %d", bv.Size, o.Size)
 	}
 
-	if bv.value == o.value {
+	if bv.value.Cmp(o.value) == 0 {
 		return BoolTrue(), nil
 	}
 	return BoolFalse(), nil

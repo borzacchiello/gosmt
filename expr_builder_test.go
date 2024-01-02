@@ -170,6 +170,18 @@ func TestCache3(t *testing.T) {
 	}
 }
 
+func TestCache4(t *testing.T) {
+	eb := NewExprBuilder()
+
+	v1 := eb.BVV(12, 32)
+	v2 := eb.BVV(12, 32)
+
+	if v1.Id() != v2.Id() {
+		t.Error("should be the same object")
+		return
+	}
+}
+
 func TestAdd1(t *testing.T) {
 	eb := NewExprBuilder()
 
