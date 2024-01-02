@@ -89,7 +89,7 @@ func TestBoolAnd(t *testing.T) {
 	cc := make([]*BoolExprPtr, 0)
 	cc = append(cc, wrapBoolExpr(cmp1))
 	cc = append(cc, wrapBoolExpr(cmp2))
-	andExpr, err := mkinternalBoolAnd(cc)
+	andExpr, err := mkinternalBoolExprAnd(cc)
 	if err != nil {
 		t.Error(err)
 		return

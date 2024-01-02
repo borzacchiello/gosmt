@@ -750,25 +750,25 @@ func mkinternalBoolExprEq(lhs, rhs *BVExprPtr) (*internalBoolExprCmp, error) {
  * TY_BOOL_AND, TY_BOOL_OR
  */
 
-type internalBoolBinArithmetic struct {
+type internalBoolExprNaryOp struct {
 	kind     int
 	symbol   string
 	children []*BoolExprPtr
 }
 
-func mkinternalBoolBinArithmetic(children []*BoolExprPtr, kind int, symbol string) (*internalBoolBinArithmetic, error) {
-	return &internalBoolBinArithmetic{kind: kind, symbol: symbol, children: children}, nil
+func mkinternalBoolExprNaryOp(children []*BoolExprPtr, kind int, symbol string) (*internalBoolExprNaryOp, error) {
+	return &internalBoolExprNaryOp{kind: kind, symbol: symbol, children: children}, nil
 }
 
-func (e *internalBoolBinArithmetic) IsTrue() bool {
+func (e *internalBoolExprNaryOp) IsTrue() bool {
 	return false
 }
 
-func (e *internalBoolBinArithmetic) IsFalse() bool {
+func (e *internalBoolExprNaryOp) IsFalse() bool {
 	return false
 }
 
-func (e *internalBoolBinArithmetic) String() string {
+func (e *internalBoolExprNaryOp) String() string {
 	b := strings.Builder{}
 	if e.children[0].e.isLeaf() {
 		b.WriteString(e.children[0].e.String())
@@ -787,7 +787,7 @@ func (e *internalBoolBinArithmetic) String() string {
 	return b.String()
 }
 
-func (e *internalBoolBinArithmetic) Children() []internalExpr {
+func (e *internalBoolExprNaryOp) Children() []internalExpr {
 	res := make([]internalExpr, 0)
 	for i := 0; i < len(e.children); i++ {
 		res = append(res, e.children[i].e)
@@ -795,11 +795,11 @@ func (e *internalBoolBinArithmetic) Children() []internalExpr {
 	return res
 }
 
-func (e *internalBoolBinArithmetic) Kind() int {
+func (e *internalBoolExprNaryOp) Kind() int {
 	return e.kind
 }
 
-func (e *internalBoolBinArithmetic) hash() uint64 {
+func (e *internalBoolExprNaryOp) hash() uint64 {
 	h := xxhash.New()
 	h.Write([]byte(e.symbol))
 
@@ -811,11 +811,11 @@ func (e *internalBoolBinArithmetic) hash() uint64 {
 	return h.Sum64()
 }
 
-func (e *internalBoolBinArithmetic) deepEq(other internalExpr) bool {
+func (e *internalBoolExprNaryOp) deepEq(other internalExpr) bool {
 	if other.Kind() != e.kind {
 		return false
 	}
-	oe := other.(*internalBoolBinArithmetic)
+	oe := other.(*internalBoolExprNaryOp)
 	if len(e.children) != len(oe.children) {
 		return false
 	}
@@ -828,11 +828,11 @@ func (e *internalBoolBinArithmetic) deepEq(other internalExpr) bool {
 	return true
 }
 
-func (e *internalBoolBinArithmetic) shallowEq(other internalExpr) bool {
+func (e *internalBoolExprNaryOp) shallowEq(other internalExpr) bool {
 	if other.Kind() != e.kind {
 		return false
 	}
-	oe := other.(*internalBoolBinArithmetic)
+	oe := other.(*internalBoolExprNaryOp)
 	if len(e.children) != len(oe.children) {
 		return false
 	}
@@ -845,19 +845,19 @@ func (e *internalBoolBinArithmetic) shallowEq(other internalExpr) bool {
 	return true
 }
 
-func (e *internalBoolBinArithmetic) isLeaf() bool {
+func (e *internalBoolExprNaryOp) isLeaf() bool {
 	return false
 }
 
-func (e *internalBoolBinArithmetic) rawPtr() uintptr {
+func (e *internalBoolExprNaryOp) rawPtr() uintptr {
 	return uintptr(unsafe.Pointer(e))
 }
 
-func mkinternalBoolAnd(children []*BoolExprPtr) (*internalBoolBinArithmetic, error) {
-	return mkinternalBoolBinArithmetic(children, TY_BOOL_AND, "&&")
+func mkinternalBoolExprAnd(children []*BoolExprPtr) (*internalBoolExprNaryOp, error) {
+	return mkinternalBoolExprNaryOp(children, TY_BOOL_AND, "&&")
 }
-func mkinternalBoolOr(children []*BoolExprPtr) (*internalBoolBinArithmetic, error) {
-	return mkinternalBoolBinArithmetic(children, TY_BOOL_OR, "||")
+func mkinternalBoolExprOr(children []*BoolExprPtr) (*internalBoolExprNaryOp, error) {
+	return mkinternalBoolExprNaryOp(children, TY_BOOL_OR, "||")
 }
 
 /*

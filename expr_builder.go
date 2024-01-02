@@ -1280,7 +1280,7 @@ func (eb *ExprBuilder) BoolNot(e *BoolExprPtr) (*BoolExprPtr, error) {
 
 	// Distribute Not over And (De Morgan)
 	if e.Kind() == TY_BOOL_AND {
-		eInt := e.e.(*internalBoolBinArithmetic)
+		eInt := e.e.(*internalBoolExprNaryOp)
 		children := make([]*BoolExprPtr, 0)
 		for i := 0; i < len(eInt.children); i++ {
 			child, err := eb.BoolNot(eInt.children[i])
@@ -1304,7 +1304,7 @@ func (eb *ExprBuilder) BoolNot(e *BoolExprPtr) (*BoolExprPtr, error) {
 
 	// Distribute Not over Or (De Morgan)
 	if e.Kind() == TY_BOOL_OR {
-		eInt := e.e.(*internalBoolBinArithmetic)
+		eInt := e.e.(*internalBoolExprNaryOp)
 		children := make([]*BoolExprPtr, 0)
 		for i := 0; i < len(eInt.children); i++ {
 			child, err := eb.BoolNot(eInt.children[i])
@@ -1419,20 +1419,20 @@ func (eb *ExprBuilder) BoolAnd(lhs, rhs *BoolExprPtr) (*BoolExprPtr, error) {
 	// Flatten args
 	children := make([]*BoolExprPtr, 0)
 	if lhs.Kind() == TY_BOOL_AND {
-		lhsInner := lhs.e.(*internalBoolBinArithmetic)
+		lhsInner := lhs.e.(*internalBoolExprNaryOp)
 		children = append(children, lhsInner.children...)
 	} else {
 		children = append(children, lhs)
 	}
 	if rhs.Kind() == TY_BOOL_AND {
-		rhsInner := rhs.e.(*internalBoolBinArithmetic)
+		rhsInner := rhs.e.(*internalBoolExprNaryOp)
 		children = append(children, rhsInner.children...)
 	} else {
 		children = append(children, rhs)
 	}
 
 	sort.Slice(children[:], func(i, j int) bool { return children[i].Id() < children[j].Id() })
-	ex, err := mkinternalBoolAnd(children)
+	ex, err := mkinternalBoolExprAnd(children)
 	if err != nil {
 		return nil, err
 	}
@@ -1459,20 +1459,20 @@ func (eb *ExprBuilder) BoolOr(lhs, rhs *BoolExprPtr) (*BoolExprPtr, error) {
 	// Flatten args
 	children := make([]*BoolExprPtr, 0)
 	if lhs.Kind() == TY_BOOL_OR {
-		lhsInner := lhs.e.(*internalBoolBinArithmetic)
+		lhsInner := lhs.e.(*internalBoolExprNaryOp)
 		children = append(children, lhsInner.children...)
 	} else {
 		children = append(children, lhs)
 	}
 	if rhs.Kind() == TY_BOOL_OR {
-		rhsInner := rhs.e.(*internalBoolBinArithmetic)
+		rhsInner := rhs.e.(*internalBoolExprNaryOp)
 		children = append(children, rhsInner.children...)
 	} else {
 		children = append(children, rhs)
 	}
 
 	sort.Slice(children[:], func(i, j int) bool { return children[i].Id() < children[j].Id() })
-	ex, err := mkinternalBoolOr(children)
+	ex, err := mkinternalBoolExprOr(children)
 	if err != nil {
 		return nil, err
 	}
