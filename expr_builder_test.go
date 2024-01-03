@@ -300,3 +300,26 @@ func TestConcat1(t *testing.T) {
 		return
 	}
 }
+
+func TestInvolvedInputs(t *testing.T) {
+	eb := NewExprBuilder()
+
+	a := eb.BVS("a", 8)
+	b := eb.BVS("b", 8)
+
+	e, _ := eb.Add(a, b)
+	e, _ = eb.Xor(e, a)
+	e, _ = eb.And(e, eb.BVV(1337, 8))
+
+	inputs := eb.InvolvedInputs(e)
+	if len(inputs) != 2 {
+		t.Error("expecting two inputs")
+		return
+	}
+	if inputs[0].Id() != a.Id() && inputs[1].Id() != a.Id() {
+		t.Error("a not found")
+	}
+	if inputs[0].Id() != b.Id() && inputs[1].Id() != b.Id() {
+		t.Error("b not found")
+	}
+}

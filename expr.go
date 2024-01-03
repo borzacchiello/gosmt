@@ -155,29 +155,27 @@ func (e *BoolExprPtr) Kind() int {
  *   Private Interface
  */
 
-type internalBVExpr interface {
+type internalExpr interface {
 	String() string
 
 	kind() int
-	bvChildren() []internalBVExpr
-	boolChildren() []internalBoolExpr
-	size() uint
+	hash() uint64
 	isLeaf() bool
 	rawPtr() uintptr
-	hash() uint64
+	subexprs() []internalExpr
+}
+
+type internalBVExpr interface {
+	internalExpr
+
+	size() uint
 	deepEq(internalBVExpr) bool
 	shallowEq(internalBVExpr) bool
 }
 
 type internalBoolExpr interface {
-	String() string
+	internalExpr
 
-	kind() int
-	bvChildren() []internalBVExpr
-	boolChildren() []internalBoolExpr
-	isLeaf() bool
-	rawPtr() uintptr
-	hash() uint64
 	deepEq(internalBoolExpr) bool
 	shallowEq(internalBoolExpr) bool
 }
@@ -206,12 +204,8 @@ func (bvv *internalBVV) size() uint {
 	return bvv.Value.Size
 }
 
-func (bvv *internalBVV) bvChildren() []internalBVExpr {
-	return make([]internalBVExpr, 0)
-}
-
-func (bvv *internalBVV) boolChildren() []internalBoolExpr {
-	return make([]internalBoolExpr, 0)
+func (bvv *internalBVV) subexprs() []internalExpr {
+	return make([]internalExpr, 0)
 }
 
 func (bvv *internalBVV) kind() int {
@@ -270,12 +264,8 @@ func (b *internalBoolVal) String() string {
 	return b.Value.String()
 }
 
-func (b *internalBoolVal) bvChildren() []internalBVExpr {
-	return make([]internalBVExpr, 0)
-}
-
-func (b *internalBoolVal) boolChildren() []internalBoolExpr {
-	return make([]internalBoolExpr, 0)
+func (b *internalBoolVal) subexprs() []internalExpr {
+	return make([]internalExpr, 0)
 }
 
 func (b *internalBoolVal) kind() int {
@@ -330,12 +320,8 @@ func (bvs *internalBVS) size() uint {
 	return bvs.sz
 }
 
-func (bvs *internalBVS) bvChildren() []internalBVExpr {
-	return make([]internalBVExpr, 0)
-}
-
-func (bvs *internalBVS) boolChildren() []internalBoolExpr {
-	return make([]internalBoolExpr, 0)
+func (bvs *internalBVS) subexprs() []internalExpr {
+	return make([]internalExpr, 0)
 }
 
 func (bvs *internalBVS) kind() int {
@@ -414,16 +400,11 @@ func (e *internalBVExprBinArithmetic) size() uint {
 	return e.children[0].Size()
 }
 
-func (e *internalBVExprBinArithmetic) bvChildren() []internalBVExpr {
-	res := make([]internalBVExpr, 0)
+func (e *internalBVExprBinArithmetic) subexprs() []internalExpr {
+	res := make([]internalExpr, 0)
 	for i := 0; i < len(e.children); i++ {
 		res = append(res, e.children[i].e)
 	}
-	return res
-}
-
-func (e *internalBVExprBinArithmetic) boolChildren() []internalBoolExpr {
-	res := make([]internalBoolExpr, 0)
 	return res
 }
 
@@ -568,14 +549,9 @@ func (e *internalBVExprUnArithmetic) size() uint {
 	return e.child.Size()
 }
 
-func (e *internalBVExprUnArithmetic) bvChildren() []internalBVExpr {
-	res := make([]internalBVExpr, 0)
+func (e *internalBVExprUnArithmetic) subexprs() []internalExpr {
+	res := make([]internalExpr, 0)
 	res = append(res, e.child.e)
-	return res
-}
-
-func (e *internalBVExprUnArithmetic) boolChildren() []internalBoolExpr {
-	res := make([]internalBoolExpr, 0)
 	return res
 }
 
@@ -658,15 +634,10 @@ func (e *internalBoolExprCmp) String() string {
 	return b.String()
 }
 
-func (e *internalBoolExprCmp) bvChildren() []internalBVExpr {
-	res := make([]internalBVExpr, 0)
+func (e *internalBoolExprCmp) subexprs() []internalExpr {
+	res := make([]internalExpr, 0)
 	res = append(res, e.lhs.e)
 	res = append(res, e.rhs.e)
-	return res
-}
-
-func (e *internalBoolExprCmp) boolChildren() []internalBoolExpr {
-	res := make([]internalBoolExpr, 0)
 	return res
 }
 
@@ -784,13 +755,8 @@ func (e *internalBoolExprNaryOp) String() string {
 	return b.String()
 }
 
-func (e *internalBoolExprNaryOp) bvChildren() []internalBVExpr {
-	res := make([]internalBVExpr, 0)
-	return res
-}
-
-func (e *internalBoolExprNaryOp) boolChildren() []internalBoolExpr {
-	res := make([]internalBoolExpr, 0)
+func (e *internalBoolExprNaryOp) subexprs() []internalExpr {
+	res := make([]internalExpr, 0)
 	for i := 0; i < len(e.children); i++ {
 		res = append(res, e.children[i].e)
 	}
@@ -886,14 +852,9 @@ func (e *internalBoolUnArithmetic) String() string {
 	return b.String()
 }
 
-func (e *internalBoolUnArithmetic) boolChildren() []internalBoolExpr {
-	res := make([]internalBoolExpr, 0)
+func (e *internalBoolUnArithmetic) subexprs() []internalExpr {
+	res := make([]internalExpr, 0)
 	res = append(res, e.child.e)
-	return res
-}
-
-func (e *internalBoolUnArithmetic) bvChildren() []internalBVExpr {
-	res := make([]internalBVExpr, 0)
 	return res
 }
 
@@ -974,14 +935,9 @@ func (e *internalBVExprExtract) size() uint {
 	return e.high - e.low + 1
 }
 
-func (e *internalBVExprExtract) bvChildren() []internalBVExpr {
-	res := make([]internalBVExpr, 0)
+func (e *internalBVExprExtract) subexprs() []internalExpr {
+	res := make([]internalExpr, 0)
 	res = append(res, e.child.e)
-	return res
-}
-
-func (e *internalBVExprExtract) boolChildren() []internalBoolExpr {
-	res := make([]internalBoolExpr, 0)
 	return res
 }
 
@@ -1071,16 +1027,11 @@ func (e *internalBVExprConcat) size() uint {
 	return size
 }
 
-func (e *internalBVExprConcat) bvChildren() []internalBVExpr {
-	res := make([]internalBVExpr, 0)
+func (e *internalBVExprConcat) subexprs() []internalExpr {
+	res := make([]internalExpr, 0)
 	for i := 0; i < len(e.children); i++ {
 		res = append(res, e.children[i].e)
 	}
-	return res
-}
-
-func (e *internalBVExprConcat) boolChildren() []internalBoolExpr {
-	res := make([]internalBoolExpr, 0)
 	return res
 }
 
@@ -1176,14 +1127,9 @@ func (e *internalBVExprExtend) size() uint {
 	return e.child.Size() + e.n
 }
 
-func (e *internalBVExprExtend) bvChildren() []internalBVExpr {
-	res := make([]internalBVExpr, 0)
+func (e *internalBVExprExtend) subexprs() []internalExpr {
+	res := make([]internalExpr, 0)
 	res = append(res, e.child.e)
-	return res
-}
-
-func (e *internalBVExprExtend) boolChildren() []internalBoolExpr {
-	res := make([]internalBoolExpr, 0)
 	return res
 }
 
@@ -1273,15 +1219,10 @@ func (e *internalBVExprITE) size() uint {
 	return e.iftrue.Size()
 }
 
-func (e *internalBVExprITE) bvChildren() []internalBVExpr {
-	res := make([]internalBVExpr, 0)
+func (e *internalBVExprITE) subexprs() []internalExpr {
+	res := make([]internalExpr, 0)
 	res = append(res, e.iftrue.e)
 	res = append(res, e.iffalse.e)
-	return res
-}
-
-func (e *internalBVExprITE) boolChildren() []internalBoolExpr {
-	res := make([]internalBoolExpr, 0)
 	res = append(res, e.cond.e)
 	return res
 }

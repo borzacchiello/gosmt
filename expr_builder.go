@@ -162,6 +162,31 @@ func (eb *ExprBuilder) getOrCreateBool(e internalBoolExpr) *BoolExprPtr {
 	return r
 }
 
+func (eb *ExprBuilder) InvolvedInputs(e *BVExprPtr) []*BVExprPtr {
+	queue := make([]internalExpr, 0)
+	visited := make(map[uintptr]bool)
+	symbols := make([]*BVExprPtr, 0)
+
+	queue = append(queue, e.e)
+	for len(queue) > 0 {
+		el := queue[len(queue)-1]
+		queue = queue[:len(queue)-1]
+		if _, ok := visited[el.rawPtr()]; ok {
+			continue
+		}
+		visited[el.rawPtr()] = true
+
+		if el.kind() == TY_SYM {
+			symel := el.(internalBVExpr)
+			symbols = append(symbols, eb.getOrCreateBV(symel))
+			continue
+		}
+
+		queue = append(queue, el.subexprs()...)
+	}
+	return symbols
+}
+
 // *** Constructors ***
 
 func flattenOrAddArithmeticArg(e *BVExprPtr, ty int, children []*BVExprPtr) []*BVExprPtr {
