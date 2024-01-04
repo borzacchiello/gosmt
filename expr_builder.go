@@ -162,12 +162,12 @@ func (eb *ExprBuilder) getOrCreateBool(e internalBoolExpr) *BoolExprPtr {
 	return r
 }
 
-func (eb *ExprBuilder) InvolvedInputs(e *BVExprPtr) []*BVExprPtr {
+func (eb *ExprBuilder) InvolvedInputs(e ExprPtr) []*BVExprPtr {
 	queue := make([]internalExpr, 0)
 	visited := make(map[uintptr]bool)
 	symbols := make([]*BVExprPtr, 0)
 
-	queue = append(queue, e.e)
+	queue = append(queue, e.getInternal())
 	for len(queue) > 0 {
 		el := queue[len(queue)-1]
 		queue = queue[:len(queue)-1]

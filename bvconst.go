@@ -43,6 +43,26 @@ func MakeBVConst(value int64, size uint) *BVConst {
 	return &BVConst{Size: size, mask: mask, value: v}
 }
 
+func MakeBVConstFromString(value string, base int, size uint) *BVConst {
+	if size == 0 {
+		return nil
+	}
+
+	mask := makeMask(size)
+	v := new(big.Int)
+	v, ok := v.SetString(value, base)
+	if !ok {
+		return nil
+	}
+	if v.Cmp(zero) < 0 {
+		v = v.Neg(v)
+		v = v.Sub(v, one)
+		v = v.Sub(mask, v)
+		v = v.And(v, mask)
+	}
+	return &BVConst{Size: size, mask: mask, value: v}
+}
+
 func MakeBVConstFromBigint(value *big.Int, size uint) *BVConst {
 	if size == 0 {
 		return nil

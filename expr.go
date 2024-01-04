@@ -53,8 +53,16 @@ const (
  *   Public Interface
  */
 
+type ExprPtr interface {
+	getInternal() internalExpr
+}
+
 type BVExprPtr struct {
 	e internalBVExpr
+}
+
+func (bv *BVExprPtr) getInternal() internalExpr {
+	return bv.e
 }
 
 func (bv *BVExprPtr) IsConst() bool {
@@ -125,6 +133,10 @@ func (bv *BVExprPtr) Kind() int {
 
 type BoolExprPtr struct {
 	e internalBoolExpr
+}
+
+func (e *BoolExprPtr) getInternal() internalExpr {
+	return e.e
 }
 
 func (e *BoolExprPtr) IsConst() bool {
