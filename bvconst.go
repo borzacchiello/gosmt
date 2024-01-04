@@ -38,8 +38,8 @@ func MakeBVConst(value int64, size uint) *BVConst {
 		v = v.Neg(v)
 		v = v.Sub(v, one)
 		v = v.Sub(mask, v)
-		v = v.And(v, mask)
 	}
+	v = v.And(v, mask)
 	return &BVConst{Size: size, mask: mask, value: v}
 }
 
@@ -58,8 +58,8 @@ func MakeBVConstFromString(value string, base int, size uint) *BVConst {
 		v = v.Neg(v)
 		v = v.Sub(v, one)
 		v = v.Sub(mask, v)
-		v = v.And(v, mask)
 	}
+	v = v.And(v, mask)
 	return &BVConst{Size: size, mask: mask, value: v}
 }
 
@@ -74,8 +74,8 @@ func MakeBVConstFromBigint(value *big.Int, size uint) *BVConst {
 		v = v.Neg(v)
 		v = v.Sub(v, one)
 		v = v.Sub(mask, v)
-		v = v.And(v, mask)
 	}
+	v = v.And(v, mask)
 	return &BVConst{Size: size, mask: mask, value: v}
 }
 
