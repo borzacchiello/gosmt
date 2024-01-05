@@ -8,29 +8,56 @@ const (
 )
 
 type solverBackend interface {
+	clone() solverBackend
 	check(query *BoolExprPtr) int
 	model() map[string]*BVConst
 	evalUpto(bv *BVExprPtr, pi *BoolExprPtr, n int) []*BVConst
 }
 
 type Solver struct {
-	Builder *ExprBuilder
-
+	eb              *ExprBuilder
 	backend         solverBackend
 	constraints     map[uintptr]*BoolExprPtr
 	symToContraints map[uintptr]map[uintptr]*BoolExprPtr
 	symDependencies map[uintptr]map[uintptr]*BVExprPtr
 }
 
-func NewZ3Solver() *Solver {
-	eb := NewExprBuilder()
+func NewZ3Solver(eb *ExprBuilder) *Solver {
 	return &Solver{
-		Builder:         eb,
+		eb:              eb,
 		backend:         newZ3Backend(),
 		constraints:     make(map[uintptr]*BoolExprPtr),
 		symToContraints: make(map[uintptr]map[uintptr]*BoolExprPtr),
 		symDependencies: make(map[uintptr]map[uintptr]*BVExprPtr),
 	}
+}
+
+func (s *Solver) Clone() *Solver {
+	clone := &Solver{
+		eb:              s.eb,
+		backend:         s.backend.clone(),
+		constraints:     make(map[uintptr]*BoolExprPtr),
+		symToContraints: make(map[uintptr]map[uintptr]*BoolExprPtr),
+		symDependencies: make(map[uintptr]map[uintptr]*BVExprPtr),
+	}
+	for k, val := range s.constraints {
+		clone.constraints[k] = val
+	}
+	for k1, val1 := range s.symToContraints {
+		set := make(map[uintptr]*BoolExprPtr)
+		for k2, val2 := range val1 {
+			set[k2] = val2
+		}
+		clone.symToContraints[k1] = set
+	}
+	for k1, val1 := range s.symDependencies {
+		set := make(map[uintptr]*BVExprPtr)
+		for k2, val2 := range val1 {
+			set[k2] = val2
+		}
+		clone.symDependencies[k1] = set
+	}
+	return clone
 }
 
 func (s *Solver) registerConstraintForSym(sym *BVExprPtr, constraint *BoolExprPtr) {
@@ -53,7 +80,7 @@ func (s *Solver) registerSymDepencency(sym1 *BVExprPtr, sym2 *BVExprPtr) {
 
 func (s *Solver) getDependentConstraints(constraint ExprPtr) []*BoolExprPtr {
 	// return all the constraints that are related with the input one (even indirectly)
-	syms := s.Builder.InvolvedInputs(constraint)
+	syms := s.eb.InvolvedInputs(constraint)
 	symsMap := make(map[uintptr]*BVExprPtr)
 	for i := 0; i < len(syms); i++ {
 		symsMap[syms[i].Id()] = syms[i]
@@ -93,7 +120,7 @@ func (s *Solver) Add(constraint *BoolExprPtr) {
 	}
 	s.constraints[constraint.Id()] = constraint
 
-	syms := s.Builder.InvolvedInputs(constraint)
+	syms := s.eb.InvolvedInputs(constraint)
 	for i := 0; i < len(syms); i++ {
 		sym := syms[i]
 		s.registerConstraintForSym(sym, constraint)
@@ -104,10 +131,10 @@ func (s *Solver) Add(constraint *BoolExprPtr) {
 }
 
 func (s *Solver) Pi() *BoolExprPtr {
-	res := s.Builder.BoolVal(true)
+	res := s.eb.BoolVal(true)
 	for _, val := range s.constraints {
 		var err error
-		res, err = s.Builder.BoolAnd(res, val)
+		res, err = s.eb.BoolAnd(res, val)
 		if err != nil {
 			// if it happens, we have a malformed path constraint
 			panic(err)
@@ -118,10 +145,10 @@ func (s *Solver) Pi() *BoolExprPtr {
 
 func (s *Solver) pi(e ExprPtr) *BoolExprPtr {
 	constraints := s.getDependentConstraints(e)
-	res := s.Builder.BoolVal(true)
+	res := s.eb.BoolVal(true)
 	for _, v := range constraints {
 		var err error
-		res, err = s.Builder.BoolAnd(res, v)
+		res, err = s.eb.BoolAnd(res, v)
 		if err != nil {
 			panic(err)
 		}
@@ -134,7 +161,7 @@ func (s *Solver) Satisfiable() int {
 }
 
 func (s *Solver) CheckSat(query *BoolExprPtr) int {
-	pi, err := s.Builder.BoolAnd(s.pi(query), query)
+	pi, err := s.eb.BoolAnd(s.pi(query), query)
 	if err != nil {
 		panic(err)
 	}

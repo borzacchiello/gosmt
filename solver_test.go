@@ -5,13 +5,14 @@ import (
 )
 
 func TestSolverSat1(t *testing.T) {
-	s := NewZ3Solver()
+	eb := NewExprBuilder()
+	s := NewZ3Solver(eb)
 
-	a := s.Builder.BVS("a", 32)
-	e, _ := s.Builder.Ule(a, s.Builder.BVV(42, 32))
+	a := eb.BVS("a", 32)
+	e, _ := eb.Ule(a, eb.BVV(42, 32))
 	s.Add(e)
 
-	e, _ = s.Builder.UGe(a, s.Builder.BVV(21, 32))
+	e, _ = eb.UGe(a, eb.BVV(21, 32))
 	sat := s.CheckSat(e)
 	if sat != RESULT_SAT {
 		t.Error("should be sat")
@@ -26,13 +27,14 @@ func TestSolverSat1(t *testing.T) {
 }
 
 func TestSolverEval1(t *testing.T) {
-	s := NewZ3Solver()
+	eb := NewExprBuilder()
+	s := NewZ3Solver(eb)
 
-	a := s.Builder.BVS("a", 32)
-	e, _ := s.Builder.Ule(a, s.Builder.BVV(42, 32))
+	a := eb.BVS("a", 32)
+	e, _ := eb.Ule(a, eb.BVV(42, 32))
 	s.Add(e)
 
-	e, _ = s.Builder.UGe(a, s.Builder.BVV(21, 32))
+	e, _ = eb.UGe(a, eb.BVV(21, 32))
 	s.Add(e)
 
 	aVal := s.Eval(a).AsULong()
@@ -43,13 +45,14 @@ func TestSolverEval1(t *testing.T) {
 }
 
 func TestSolverEval2(t *testing.T) {
-	s := NewZ3Solver()
+	eb := NewExprBuilder()
+	s := NewZ3Solver(eb)
 
-	a := s.Builder.BVS("a", 32)
-	e, _ := s.Builder.Ule(a, s.Builder.BVV(42, 32))
+	a := eb.BVS("a", 32)
+	e, _ := eb.Ule(a, eb.BVV(42, 32))
 	s.Add(e)
 
-	e, _ = s.Builder.UGe(a, s.Builder.BVV(21, 32))
+	e, _ = eb.UGe(a, eb.BVV(21, 32))
 	s.Add(e)
 
 	vals := s.EvalUpto(a, 128)

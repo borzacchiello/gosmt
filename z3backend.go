@@ -6,22 +6,27 @@ import (
 	"github.com/aclements/go-z3/z3"
 )
 
-type z3backend struct {
-	ctx    *z3.Context
-	cfg    *z3.Config
-	solver *z3.Solver
+/*
+ *  Note: we are using a global Z3 context, which is thread-safe and locks a lot
+ *        *but* it uses possibly less memory. We should test whether using multiple
+ *        contexts is better
+ */
+var cfg *z3.Config = z3.NewContextConfig()
+var ctx *z3.Context = z3.NewContext(cfg)
 
+type z3backend struct {
+	solver      *z3.Solver
 	lastSymbols map[uintptr]z3.BV
 }
 
 func newZ3Backend() *z3backend {
-	cfg := z3.NewContextConfig()
-	ctx := z3.NewContext(cfg)
 	return &z3backend{
-		ctx:    ctx,
-		cfg:    cfg,
 		solver: z3.NewSolver(ctx),
 	}
+}
+
+func (s *z3backend) clone() solverBackend {
+	return newZ3Backend()
 }
 
 func (s *z3backend) check(query *BoolExprPtr) int {
@@ -130,11 +135,11 @@ func (s *z3backend) convert(e internalExpr, cache map[uintptr]z3.Value, symbols 
 	switch e.kind() {
 	case TY_SYM:
 		bv := e.(*internalBVS)
-		result = s.ctx.BVConst(bv.name, int(bv.size()))
+		result = ctx.BVConst(bv.name, int(bv.size()))
 		symbols[bv.rawPtr()] = result.(z3.BV)
 	case TY_CONST:
 		bv := e.(*internalBVV)
-		result = s.ctx.FromBigInt(bv.Value.value, s.ctx.BVSort(int(bv.size())))
+		result = ctx.FromBigInt(bv.Value.value, ctx.BVSort(int(bv.size())))
 	case TY_EXTRACT:
 		e := e.(*internalBVExprExtract)
 		child := s.convert(e.child.e, cache, symbols).(z3.BV)
@@ -291,11 +296,11 @@ func (s *z3backend) convert(e internalExpr, cache map[uintptr]z3.Value, symbols 
 		result = lhs.Eq(rhs)
 	case TY_BOOL_CONST:
 		e := e.(*internalBoolVal)
-		result = s.ctx.FromBool(e.Value.Value)
+		result = ctx.FromBool(e.Value.Value)
 	case TY_BOOL_NOT:
 		e := e.(*internalBoolUnArithmetic)
 		child := s.convert(e.child.e, cache, symbols).(z3.Bool)
-		return child.Not()
+		result = child.Not()
 	case TY_BOOL_AND:
 		e := e.(*internalBoolExprNaryOp)
 		res := s.convert(e.children[0].e, cache, symbols).(z3.Bool)
