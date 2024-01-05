@@ -54,6 +54,9 @@ const (
  */
 
 type ExprPtr interface {
+	IsBV() bool
+	IsBool() bool
+
 	getInternal() internalExpr
 }
 
@@ -63,6 +66,14 @@ type BVExprPtr struct {
 
 func (bv *BVExprPtr) getInternal() internalExpr {
 	return bv.e
+}
+
+func (bv *BVExprPtr) IsBV() bool {
+	return true
+}
+
+func (bv *BVExprPtr) IsBool() bool {
+	return false
 }
 
 func (bv *BVExprPtr) IsConst() bool {
@@ -137,6 +148,14 @@ type BoolExprPtr struct {
 
 func (e *BoolExprPtr) getInternal() internalExpr {
 	return e.e
+}
+
+func (bv *BoolExprPtr) IsBV() bool {
+	return false
+}
+
+func (bv *BoolExprPtr) IsBool() bool {
+	return true
 }
 
 func (e *BoolExprPtr) IsConst() bool {

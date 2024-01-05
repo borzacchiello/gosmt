@@ -1,5 +1,7 @@
 package gosmt
 
+import "fmt"
+
 const (
 	RESULT_ERROR   = 0
 	RESULT_SAT     = 1
@@ -20,6 +22,9 @@ type Solver struct {
 	constraints     map[uintptr]*BoolExprPtr
 	symToContraints map[uintptr]map[uintptr]*BoolExprPtr
 	symDependencies map[uintptr]map[uintptr]*BVExprPtr
+
+	// A cache for previous evaluations
+	model map[string]*BVConst
 }
 
 func NewZ3Solver(eb *ExprBuilder) *Solver {
@@ -29,6 +34,7 @@ func NewZ3Solver(eb *ExprBuilder) *Solver {
 		constraints:     make(map[uintptr]*BoolExprPtr),
 		symToContraints: make(map[uintptr]map[uintptr]*BoolExprPtr),
 		symDependencies: make(map[uintptr]map[uintptr]*BVExprPtr),
+		model:           make(map[string]*BVConst),
 	}
 }
 
@@ -39,9 +45,13 @@ func (s *Solver) Clone() *Solver {
 		constraints:     make(map[uintptr]*BoolExprPtr),
 		symToContraints: make(map[uintptr]map[uintptr]*BoolExprPtr),
 		symDependencies: make(map[uintptr]map[uintptr]*BVExprPtr),
+		model:           make(map[string]*BVConst),
 	}
 	for k, val := range s.constraints {
 		clone.constraints[k] = val
+	}
+	for k, val := range s.model {
+		clone.model[k] = val
 	}
 	for k1, val1 := range s.symToContraints {
 		set := make(map[uintptr]*BoolExprPtr)
@@ -156,8 +166,32 @@ func (s *Solver) pi(e ExprPtr) *BoolExprPtr {
 	return res
 }
 
-func (s *Solver) Satisfiable() int {
-	return s.backend.check(s.Pi())
+func (s *Solver) checkSatCurrentModel(q *BoolExprPtr) int {
+	evalQ := s.eb.eval(q, s.model)
+	if evalQ.getInternal().kind() == TY_BOOL_CONST {
+		evalQInt := evalQ.getInternal().(*internalBoolVal)
+		if evalQInt.Value.Value {
+			return RESULT_SAT
+		}
+		return RESULT_UNSAT
+	}
+	return RESULT_UNKNOWN
+}
+
+func (s *Solver) Satisfiable() (int, error) {
+	pi := s.Pi()
+	satCurrentModel := s.checkSatCurrentModel(pi)
+	if satCurrentModel == RESULT_SAT {
+		return RESULT_SAT, nil
+	}
+	if satCurrentModel == RESULT_UNSAT {
+		return RESULT_ERROR, fmt.Errorf("unsat state")
+	}
+
+	r := s.backend.check(s.Pi())
+	// save the model
+	s.model = s.backend.model()
+	return r, nil
 }
 
 func (s *Solver) CheckSat(query *BoolExprPtr) int {
@@ -165,7 +199,27 @@ func (s *Solver) CheckSat(query *BoolExprPtr) int {
 	if err != nil {
 		panic(err)
 	}
-	return s.backend.check(pi)
+	satCurrentModel := s.checkSatCurrentModel(pi)
+	if satCurrentModel == RESULT_UNKNOWN {
+		return s.backend.check(pi)
+	}
+	return satCurrentModel
+}
+
+func (s *Solver) CheckSatAndAddIfSat(query *BoolExprPtr) int {
+	pi, err := s.eb.BoolAnd(s.pi(query), query)
+	if err != nil {
+		panic(err)
+	}
+	result := s.checkSatCurrentModel(pi)
+	if result == RESULT_UNKNOWN {
+		result = s.backend.check(pi)
+	}
+	if result == RESULT_SAT {
+		s.model = s.backend.model()
+		s.Add(query)
+	}
+	return result
 }
 
 func (s *Solver) Model() map[string]*BVConst {
@@ -173,15 +227,26 @@ func (s *Solver) Model() map[string]*BVConst {
 }
 
 func (s *Solver) Eval(bv *BVExprPtr) *BVConst {
+	bvEval := s.eb.eval(bv, s.model)
+	if bvEval.getInternal().kind() == TY_CONST {
+		bvEvalInt := bvEval.getInternal().(*internalBVV)
+		return bvEvalInt.Value.Copy()
+	}
+
 	pi := s.pi(bv)
 	res := s.backend.evalUpto(bv, pi, 1)
 	if len(res) == 0 {
 		return nil
 	}
+	s.model = s.backend.model()
 	return res[0]
 }
 
 func (s *Solver) EvalUpto(bv *BVExprPtr, n int) []*BVConst {
 	pi := s.pi(bv)
-	return s.backend.evalUpto(bv, pi, n)
+	r := s.backend.evalUpto(bv, pi, n)
+	if len(r) > 0 {
+		s.model = s.backend.model()
+	}
+	return r
 }

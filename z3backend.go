@@ -15,13 +15,16 @@ var cfg *z3.Config = z3.NewContextConfig()
 var ctx *z3.Context = z3.NewContext(cfg)
 
 type z3backend struct {
-	solver      *z3.Solver
-	lastSymbols map[uintptr]z3.BV
+	solver *z3.Solver
+
+	lastSatModel *z3.Model
+	lastSymbols  map[uintptr]z3.BV
 }
 
 func newZ3Backend() *z3backend {
 	return &z3backend{
-		solver: z3.NewSolver(ctx),
+		solver:       z3.NewSolver(ctx),
+		lastSatModel: nil,
 	}
 }
 
@@ -47,11 +50,14 @@ func (s *z3backend) check(query *BoolExprPtr) int {
 
 	r, err := s.solver.Check()
 	if err != nil {
+		s.lastSatModel = nil
 		return RESULT_UNKNOWN
 	}
 	if r {
+		s.lastSatModel = s.solver.Model()
 		return RESULT_SAT
 	}
+	s.lastSatModel = nil
 	return RESULT_UNSAT
 }
 
@@ -64,7 +70,7 @@ func convertZ3Const(c z3.BV) (*BVConst, error) {
 }
 
 func (s *z3backend) model() map[string]*BVConst {
-	m := s.solver.Model()
+	m := s.lastSatModel
 	if m == nil {
 		return nil
 	}
@@ -109,6 +115,7 @@ func (s *z3backend) evalUpto(bv *BVExprPtr, pi *BoolExprPtr, n int) []*BVConst {
 		if m == nil {
 			panic("no model")
 		}
+		s.lastSatModel = m
 
 		v := m.Eval(bvZ3, true).(z3.BV)
 		c, err := convertZ3Const(v)
