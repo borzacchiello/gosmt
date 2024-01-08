@@ -1,8 +1,10 @@
-package gosmt
+package gosmt_test
 
 import (
 	"runtime"
 	"testing"
+
+	"github.com/borzacchiello/gosmt"
 )
 
 func isErr(t *testing.T, err error) bool {
@@ -13,7 +15,7 @@ func isErr(t *testing.T, err error) bool {
 	return false
 }
 
-func getByte(t *testing.T, eb *ExprBuilder, expr *BVExprPtr, i uint) *BVExprPtr {
+func getByte(t *testing.T, eb *gosmt.ExprBuilder, expr *gosmt.BVExprPtr, i uint) *gosmt.BVExprPtr {
 	b, err := eb.Extract(expr, (i+1)*8-1, i*8)
 	if isErr(t, err) {
 		return nil
@@ -22,7 +24,7 @@ func getByte(t *testing.T, eb *ExprBuilder, expr *BVExprPtr, i uint) *BVExprPtr 
 }
 
 func TestCache1(t *testing.T) {
-	eb := NewExprBuilder()
+	eb := gosmt.NewExprBuilder()
 
 	var oldid uintptr
 	{
@@ -64,7 +66,7 @@ func TestCache1(t *testing.T) {
 }
 
 func TestCache2(t *testing.T) {
-	eb := NewExprBuilder()
+	eb := gosmt.NewExprBuilder()
 
 	s1 := eb.BVS("s1", 32)
 	var oldid uintptr
@@ -112,9 +114,9 @@ func TestCache2(t *testing.T) {
 }
 
 func TestCache3(t *testing.T) {
-	eb := NewExprBuilder()
+	eb := gosmt.NewExprBuilder()
 
-	var addExpr *BVExprPtr
+	var addExpr *gosmt.BVExprPtr
 	var oldid1, oldid2 uintptr
 	var addExprId uintptr
 	{
@@ -171,7 +173,7 @@ func TestCache3(t *testing.T) {
 }
 
 func TestCache4(t *testing.T) {
-	eb := NewExprBuilder()
+	eb := gosmt.NewExprBuilder()
 
 	v1 := eb.BVV(12, 32)
 	v2 := eb.BVV(12, 32)
@@ -183,7 +185,7 @@ func TestCache4(t *testing.T) {
 }
 
 func TestAdd1(t *testing.T) {
-	eb := NewExprBuilder()
+	eb := gosmt.NewExprBuilder()
 
 	a := eb.BVS("a", 64)
 	b := eb.BVS("b", 64)
@@ -197,7 +199,7 @@ func TestAdd1(t *testing.T) {
 }
 
 func TestShift1(t *testing.T) {
-	eb := NewExprBuilder()
+	eb := gosmt.NewExprBuilder()
 
 	sym := eb.BVS("sym", 64)
 	e, err := eb.AShr(sym, eb.BVV(16, 64))
@@ -218,7 +220,7 @@ func TestShift1(t *testing.T) {
 }
 
 func TestBool1(t *testing.T) {
-	eb := NewExprBuilder()
+	eb := gosmt.NewExprBuilder()
 
 	a, err := eb.Eq(eb.BVS("a", 1), eb.BVV(1, 1))
 	if err != nil {
@@ -258,7 +260,7 @@ func TestBool1(t *testing.T) {
 }
 
 func TestBVCompare(t *testing.T) {
-	eb := NewExprBuilder()
+	eb := gosmt.NewExprBuilder()
 
 	a := eb.BVS("a", 64)
 	b := eb.BVS("b", 64)
@@ -270,7 +272,7 @@ func TestBVCompare(t *testing.T) {
 }
 
 func TestConcat1(t *testing.T) {
-	eb := NewExprBuilder()
+	eb := gosmt.NewExprBuilder()
 
 	a := eb.BVS("a", 32)
 	p1 := getByte(t, eb, a, 0)
@@ -302,7 +304,7 @@ func TestConcat1(t *testing.T) {
 }
 
 func TestInvolvedInputs(t *testing.T) {
-	eb := NewExprBuilder()
+	eb := gosmt.NewExprBuilder()
 
 	a := eb.BVS("a", 8)
 	b := eb.BVS("b", 8)

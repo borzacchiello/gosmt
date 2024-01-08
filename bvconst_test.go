@@ -1,19 +1,21 @@
-package gosmt
+package gosmt_test
 
 import (
 	"testing"
+
+	"github.com/borzacchiello/gosmt"
 )
 
 func TestBV(t *testing.T) {
-	bv := MakeBVConst(-1294871, 32)
+	bv := gosmt.MakeBVConst(-1294871, 32)
 	if bv.String() != "<BV32 0xffec3de9>" {
 		t.Errorf("incorrect BV")
 	}
 }
 
 func TestBVAdd(t *testing.T) {
-	bv1 := MakeBVConst(-10, 32)
-	bv2 := MakeBVConst(128, 32)
+	bv1 := gosmt.MakeBVConst(-10, 32)
+	bv2 := gosmt.MakeBVConst(128, 32)
 	bv1.Add(bv2)
 
 	if bv1.AsULong() != 118 {
@@ -22,8 +24,8 @@ func TestBVAdd(t *testing.T) {
 }
 
 func TestBVSub(t *testing.T) {
-	bv1 := MakeBVConst(-10, 32)
-	bv2 := MakeBVConst(128, 32)
+	bv1 := gosmt.MakeBVConst(-10, 32)
+	bv2 := gosmt.MakeBVConst(128, 32)
 	bv1.Sub(bv2)
 
 	if bv1.AsLong() != -138 {
@@ -32,7 +34,7 @@ func TestBVSub(t *testing.T) {
 }
 
 func TestSExt(t *testing.T) {
-	bv := MakeBVConst(-10, 32)
+	bv := gosmt.MakeBVConst(-10, 32)
 	bv.SExt(32)
 
 	if bv.Size != 64 || bv.AsLong() != -10 {
@@ -41,25 +43,25 @@ func TestSExt(t *testing.T) {
 }
 
 func TestNonstandardSizes(t *testing.T) {
-	bv := MakeBVConst(1, 3)
-	bv.Add(MakeBVConst(7, 3))
+	bv := gosmt.MakeBVConst(1, 3)
+	bv.Add(gosmt.MakeBVConst(7, 3))
 	if bv.AsULong() != 0 {
 		t.Errorf("incorrect BV")
 	}
 }
 
 func TestWrongSizes(t *testing.T) {
-	err := MakeBVConst(1, 3).Add(MakeBVConst(1, 4))
+	err := gosmt.MakeBVConst(1, 3).Add(gosmt.MakeBVConst(1, 4))
 	if err == nil {
 		t.Errorf("should return an error")
 	}
 }
 
 func TestTruncateConcat(t *testing.T) {
-	bv := MakeBVConst(42, 8)
-	bv.Concat(MakeBVConst(43, 8))
-	bv.Concat(MakeBVConst(44, 8))
-	bv.Concat(MakeBVConst(45, 8))
+	bv := gosmt.MakeBVConst(42, 8)
+	bv.Concat(gosmt.MakeBVConst(43, 8))
+	bv.Concat(gosmt.MakeBVConst(44, 8))
+	bv.Concat(gosmt.MakeBVConst(45, 8))
 
 	b := bv.Copy()
 	b.Truncate(7, 0)
@@ -75,7 +77,7 @@ func TestTruncateConcat(t *testing.T) {
 }
 
 func TestSlice(t *testing.T) {
-	bv := MakeBVConst(0xdeadbeef, 32)
+	bv := gosmt.MakeBVConst(0xdeadbeef, 32)
 
 	if bv.Slice(7, 0).AsULong() != 0xef {
 		t.Errorf("incorrect BV")
@@ -92,14 +94,14 @@ func TestSlice(t *testing.T) {
 }
 
 func TestAShr(t *testing.T) {
-	bv := MakeBVConst(-1, 32)
+	bv := gosmt.MakeBVConst(-1, 32)
 	bv.AShr(13)
 
 	if bv.AsLong() != -1 {
 		t.Errorf("incorrect BV")
 	}
 
-	bv = MakeBVConst(-2, 32)
+	bv = gosmt.MakeBVConst(-2, 32)
 	bv.AShr(1)
 
 	if bv.AsLong() != -1 {
@@ -108,7 +110,7 @@ func TestAShr(t *testing.T) {
 }
 
 func TestNeg(t *testing.T) {
-	bv := MakeBVConst(-42, 18)
+	bv := gosmt.MakeBVConst(-42, 18)
 
 	bv.Neg()
 	if bv.AsLong() != 42 {
@@ -121,9 +123,9 @@ func TestNeg(t *testing.T) {
 }
 
 func TestCmp(t *testing.T) {
-	bv1 := MakeBVConst(-10, 32)
-	bv2 := MakeBVConst(-11, 32)
-	bv3 := MakeBVConst(1, 32)
+	bv1 := gosmt.MakeBVConst(-10, 32)
+	bv2 := gosmt.MakeBVConst(-11, 32)
+	bv3 := gosmt.MakeBVConst(1, 32)
 
 	v, err := bv1.SGt(bv2)
 	if err != nil || !v.Value {
@@ -152,8 +154,8 @@ func TestCmp(t *testing.T) {
 }
 
 func TestDiv(t *testing.T) {
-	bv1 := MakeBVConst(-10, 32)
-	bv2 := MakeBVConst(3, 32)
+	bv1 := gosmt.MakeBVConst(-10, 32)
+	bv2 := gosmt.MakeBVConst(3, 32)
 	resSdiv := bv1.Copy()
 	resSdiv.SDiv(bv2)
 	if resSdiv.AsLong() != -3 {

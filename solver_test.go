@@ -1,12 +1,14 @@
-package gosmt
+package gosmt_test
 
 import (
 	"testing"
+
+	"github.com/borzacchiello/gosmt"
 )
 
 func TestSolverSat1(t *testing.T) {
-	eb := NewExprBuilder()
-	s := NewZ3Solver(eb)
+	eb := gosmt.NewExprBuilder()
+	s := gosmt.NewZ3Solver(eb)
 
 	a := eb.BVS("a", 32)
 	e, _ := eb.Ule(a, eb.BVV(42, 32))
@@ -14,7 +16,7 @@ func TestSolverSat1(t *testing.T) {
 
 	e, _ = eb.UGe(a, eb.BVV(21, 32))
 	sat := s.CheckSat(e)
-	if sat != RESULT_SAT {
+	if sat != gosmt.RESULT_SAT {
 		t.Error("should be sat")
 		return
 	}
@@ -27,8 +29,8 @@ func TestSolverSat1(t *testing.T) {
 }
 
 func TestSolverEval1(t *testing.T) {
-	eb := NewExprBuilder()
-	s := NewZ3Solver(eb)
+	eb := gosmt.NewExprBuilder()
+	s := gosmt.NewZ3Solver(eb)
 
 	a := eb.BVS("a", 32)
 	e, _ := eb.Ule(a, eb.BVV(42, 32))
@@ -45,8 +47,8 @@ func TestSolverEval1(t *testing.T) {
 }
 
 func TestSolverEval2(t *testing.T) {
-	eb := NewExprBuilder()
-	s := NewZ3Solver(eb)
+	eb := gosmt.NewExprBuilder()
+	s := gosmt.NewZ3Solver(eb)
 
 	a := eb.BVS("a", 32)
 	e, _ := eb.Ule(a, eb.BVV(42, 32))
