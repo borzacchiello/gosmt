@@ -325,3 +325,18 @@ func TestInvolvedInputs(t *testing.T) {
 		t.Error("b not found")
 	}
 }
+
+func TestAddConstProp1(t *testing.T) {
+	eb := gosmt.NewExprBuilder()
+
+	a := eb.BVS("a", 32)
+	e := a
+	for i := 0; i < 100; i++ {
+		e, _ = eb.Add(e, eb.BVV(1, 32))
+	}
+
+	if e.String() != "a + 0x64" {
+		t.Error("unable to constant propagate on Add")
+		return
+	}
+}

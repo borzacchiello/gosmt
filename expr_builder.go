@@ -334,9 +334,31 @@ func (eb *ExprBuilder) Add(lhs, rhs *BVExprPtr) (*BVExprPtr, error) {
 		return eb.getOrCreateBV(mkinternalBVV(0, lhs.Size())), nil
 	}
 
+	childrenFlattened := make([]*BVExprPtr, 0)
+	childrenFlattened = flattenOrAddArithmeticArg(lhs, TY_ADD, childrenFlattened)
+	childrenFlattened = flattenOrAddArithmeticArg(rhs, TY_ADD, childrenFlattened)
+
+	// Constant propagation
 	children := make([]*BVExprPtr, 0)
-	children = flattenOrAddArithmeticArg(lhs, TY_ADD, children)
-	children = flattenOrAddArithmeticArg(rhs, TY_ADD, children)
+	cVal := MakeBVConst(0, lhs.Size())
+	for i := 0; i < len(childrenFlattened); i++ {
+		child := childrenFlattened[i]
+		if child.IsConst() {
+			childConst, _ := child.GetConst()
+			cVal.Add(childConst)
+		} else {
+			children = append(children, child)
+		}
+	}
+	if !cVal.IsZero() {
+		children = append(children, eb.getOrCreateBV(mkinternalBVVFromConst(*cVal)))
+	}
+	if len(children) == 0 {
+		return eb.getOrCreateBV(mkinternalBVV(0, lhs.Size())), nil
+	}
+	if len(children) == 1 {
+		return children[0], nil
+	}
 
 	// Remove add with opposite on flattened
 	if len(children) > 2 {
@@ -362,16 +384,6 @@ func (eb *ExprBuilder) Mul(lhs, rhs *BVExprPtr) (*BVExprPtr, error) {
 		return nil, fmt.Errorf("different sizes")
 	}
 
-	// Constant propagation
-	if lhs.IsConst() && rhs.IsConst() {
-		c1, _ := lhs.GetConst()
-		c2, _ := rhs.GetConst()
-		if err := c2.Mul(c1); err != nil {
-			return nil, err
-		}
-		return eb.getOrCreateBV(mkinternalBVVFromConst(*c1)), nil
-	}
-
 	// Remove ones
 	if lhs.IsOne() {
 		return rhs, nil
@@ -388,9 +400,32 @@ func (eb *ExprBuilder) Mul(lhs, rhs *BVExprPtr) (*BVExprPtr, error) {
 		return rhs, nil
 	}
 
+	childrenFlattened := make([]*BVExprPtr, 0)
+	childrenFlattened = flattenOrAddArithmeticArg(lhs, TY_MUL, childrenFlattened)
+	childrenFlattened = flattenOrAddArithmeticArg(rhs, TY_MUL, childrenFlattened)
+
+	// Constant propagation
 	children := make([]*BVExprPtr, 0)
-	children = flattenOrAddArithmeticArg(lhs, TY_MUL, children)
-	children = flattenOrAddArithmeticArg(rhs, TY_MUL, children)
+	cVal := MakeBVConst(1, lhs.Size())
+	for i := 0; i < len(childrenFlattened); i++ {
+		child := childrenFlattened[i]
+		if child.IsConst() {
+			childConst, _ := child.GetConst()
+			cVal.Mul(childConst)
+		} else {
+			children = append(children, child)
+		}
+	}
+	if !cVal.IsOne() {
+		children = append(children, eb.getOrCreateBV(mkinternalBVVFromConst(*cVal)))
+	}
+	if len(children) == 0 {
+		return eb.getOrCreateBV(mkinternalBVV(1, lhs.Size())), nil
+	}
+	if len(children) == 1 {
+		return children[0], nil
+	}
+
 	sort.Slice(children[:], func(i, j int) bool { return children[i].Id() < children[j].Id() })
 	ex, err := mkinternalBVExprMul(children)
 	if err != nil {
@@ -402,16 +437,6 @@ func (eb *ExprBuilder) Mul(lhs, rhs *BVExprPtr) (*BVExprPtr, error) {
 func (eb *ExprBuilder) And(lhs, rhs *BVExprPtr) (*BVExprPtr, error) {
 	if lhs.Size() != rhs.Size() {
 		return nil, fmt.Errorf("different sizes")
-	}
-
-	// Constant propagation
-	if lhs.IsConst() && rhs.IsConst() {
-		c1, _ := lhs.GetConst()
-		c2, _ := rhs.GetConst()
-		if err := c2.And(c1); err != nil {
-			return nil, err
-		}
-		return eb.getOrCreateBV(mkinternalBVVFromConst(*c1)), nil
 	}
 
 	// Check zero
@@ -435,9 +460,31 @@ func (eb *ExprBuilder) And(lhs, rhs *BVExprPtr) (*BVExprPtr, error) {
 		return lhs, nil
 	}
 
+	childrenFlattened := make([]*BVExprPtr, 0)
+	childrenFlattened = flattenOrAddArithmeticArg(lhs, TY_AND, childrenFlattened)
+	childrenFlattened = flattenOrAddArithmeticArg(rhs, TY_AND, childrenFlattened)
+
+	// Constant propagation
 	children := make([]*BVExprPtr, 0)
-	children = flattenOrAddArithmeticArg(lhs, TY_AND, children)
-	children = flattenOrAddArithmeticArg(rhs, TY_AND, children)
+	cVal := MakeBVConst(-1, lhs.Size())
+	for i := 0; i < len(childrenFlattened); i++ {
+		child := childrenFlattened[i]
+		if child.IsConst() {
+			childConst, _ := child.GetConst()
+			cVal.And(childConst)
+		} else {
+			children = append(children, child)
+		}
+	}
+	if !cVal.HasAllBitsSet() {
+		children = append(children, eb.getOrCreateBV(mkinternalBVVFromConst(*cVal)))
+	}
+	if len(children) == 0 {
+		return eb.getOrCreateBV(mkinternalBVV(-1, lhs.Size())), nil
+	}
+	if len(children) == 1 {
+		return children[0], nil
+	}
 
 	// Remove and with same on flattened
 	if len(children) > 2 {
@@ -463,16 +510,6 @@ func (eb *ExprBuilder) Or(lhs, rhs *BVExprPtr) (*BVExprPtr, error) {
 		return nil, fmt.Errorf("different sizes")
 	}
 
-	// Constant propagation
-	if lhs.IsConst() && rhs.IsConst() {
-		c1, _ := lhs.GetConst()
-		c2, _ := rhs.GetConst()
-		if err := c2.Or(c1); err != nil {
-			return nil, err
-		}
-		return eb.getOrCreateBV(mkinternalBVVFromConst(*c1)), nil
-	}
-
 	// Check zero
 	if lhs.IsZero() {
 		return rhs, nil
@@ -494,9 +531,31 @@ func (eb *ExprBuilder) Or(lhs, rhs *BVExprPtr) (*BVExprPtr, error) {
 		return lhs, nil
 	}
 
+	childrenFlattened := make([]*BVExprPtr, 0)
+	childrenFlattened = flattenOrAddArithmeticArg(lhs, TY_OR, childrenFlattened)
+	childrenFlattened = flattenOrAddArithmeticArg(rhs, TY_OR, childrenFlattened)
+
+	// Constant propagation
 	children := make([]*BVExprPtr, 0)
-	children = flattenOrAddArithmeticArg(lhs, TY_OR, children)
-	children = flattenOrAddArithmeticArg(rhs, TY_OR, children)
+	cVal := MakeBVConst(0, lhs.Size())
+	for i := 0; i < len(childrenFlattened); i++ {
+		child := childrenFlattened[i]
+		if child.IsConst() {
+			childConst, _ := child.GetConst()
+			cVal.Or(childConst)
+		} else {
+			children = append(children, child)
+		}
+	}
+	if !cVal.IsZero() {
+		children = append(children, eb.getOrCreateBV(mkinternalBVVFromConst(*cVal)))
+	}
+	if len(children) == 0 {
+		return eb.getOrCreateBV(mkinternalBVV(0, lhs.Size())), nil
+	}
+	if len(children) == 1 {
+		return children[0], nil
+	}
 
 	// Remove and with same on flattened
 	if len(children) > 2 {
@@ -522,16 +581,6 @@ func (eb *ExprBuilder) Xor(lhs, rhs *BVExprPtr) (*BVExprPtr, error) {
 		return nil, fmt.Errorf("different sizes")
 	}
 
-	// Constant propagation
-	if lhs.IsConst() && rhs.IsConst() {
-		c1, _ := lhs.GetConst()
-		c2, _ := rhs.GetConst()
-		if err := c2.Xor(c1); err != nil {
-			return nil, err
-		}
-		return eb.getOrCreateBV(mkinternalBVVFromConst(*c1)), nil
-	}
-
 	// Check zero
 	if lhs.IsZero() {
 		return rhs, nil
@@ -545,9 +594,31 @@ func (eb *ExprBuilder) Xor(lhs, rhs *BVExprPtr) (*BVExprPtr, error) {
 		return eb.BVV(0, lhs.Size()), nil
 	}
 
+	childrenFlattened := make([]*BVExprPtr, 0)
+	childrenFlattened = flattenOrAddArithmeticArg(lhs, TY_XOR, childrenFlattened)
+	childrenFlattened = flattenOrAddArithmeticArg(rhs, TY_XOR, childrenFlattened)
+
+	// Constant propagation
 	children := make([]*BVExprPtr, 0)
-	children = flattenOrAddArithmeticArg(lhs, TY_XOR, children)
-	children = flattenOrAddArithmeticArg(rhs, TY_XOR, children)
+	cVal := MakeBVConst(0, lhs.Size())
+	for i := 0; i < len(childrenFlattened); i++ {
+		child := childrenFlattened[i]
+		if child.IsConst() {
+			childConst, _ := child.GetConst()
+			cVal.Xor(childConst)
+		} else {
+			children = append(children, child)
+		}
+	}
+	if !cVal.IsZero() {
+		children = append(children, eb.getOrCreateBV(mkinternalBVVFromConst(*cVal)))
+	}
+	if len(children) == 0 {
+		return eb.getOrCreateBV(mkinternalBVV(0, lhs.Size())), nil
+	}
+	if len(children) == 1 {
+		return children[0], nil
+	}
 
 	// Remove couples of same expression on flattened
 	if len(children) > 2 {
