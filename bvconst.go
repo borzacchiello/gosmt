@@ -132,6 +132,24 @@ func (bv *BVConst) AsLong() int64 {
 	return -int64(bvCpy.AsULong())
 }
 
+func (bv *BVConst) AsBuffer() []byte {
+	bvAlias := bv
+	if bv.Size%8 != 0 {
+		bvAlias = bv.Copy()
+		bvAlias.ZExt(bv.Size % 8)
+	}
+
+	res := make([]byte, 0)
+	for i := bvAlias.Size; i > 0; i -= 8 {
+		b := bvAlias.Copy()
+		if err := b.Truncate(i-1, i-8); err != nil {
+			panic(err)
+		}
+		res = append(res, byte(b.AsULong()))
+	}
+	return res
+}
+
 func (bv *BVConst) Not() {
 	bv.value.Not(bv.value)
 	bv.value.And(bv.value, bv.mask)

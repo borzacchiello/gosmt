@@ -10,6 +10,7 @@ func TestBV(t *testing.T) {
 	bv := gosmt.MakeBVConst(-1294871, 32)
 	if bv.String() != "<BV32 0xffec3de9>" {
 		t.Errorf("incorrect BV")
+		return
 	}
 }
 
@@ -20,6 +21,7 @@ func TestBVAdd(t *testing.T) {
 
 	if bv1.AsULong() != 118 {
 		t.Errorf("incorrect BV")
+		return
 	}
 }
 
@@ -30,6 +32,7 @@ func TestBVSub(t *testing.T) {
 
 	if bv1.AsLong() != -138 {
 		t.Errorf("incorrect BV")
+		return
 	}
 }
 
@@ -39,6 +42,7 @@ func TestSExt(t *testing.T) {
 
 	if bv.Size != 64 || bv.AsLong() != -10 {
 		t.Errorf("incorrect BV")
+		return
 	}
 }
 
@@ -47,6 +51,7 @@ func TestNonstandardSizes(t *testing.T) {
 	bv.Add(gosmt.MakeBVConst(7, 3))
 	if bv.AsULong() != 0 {
 		t.Errorf("incorrect BV")
+		return
 	}
 }
 
@@ -54,6 +59,7 @@ func TestWrongSizes(t *testing.T) {
 	err := gosmt.MakeBVConst(1, 3).Add(gosmt.MakeBVConst(1, 4))
 	if err == nil {
 		t.Errorf("should return an error")
+		return
 	}
 }
 
@@ -67,12 +73,14 @@ func TestTruncateConcat(t *testing.T) {
 	b.Truncate(7, 0)
 	if b.AsULong() != 45 {
 		t.Errorf("incorrect BV")
+		return
 	}
 
 	b = bv.Copy()
 	b.Truncate(15, 8)
 	if b.AsULong() != 44 {
 		t.Errorf("incorrect BV")
+		return
 	}
 }
 
@@ -81,15 +89,19 @@ func TestSlice(t *testing.T) {
 
 	if bv.Slice(7, 0).AsULong() != 0xef {
 		t.Errorf("incorrect BV")
+		return
 	}
 	if bv.Slice(15, 8).AsULong() != 0xbe {
 		t.Errorf("incorrect BV")
+		return
 	}
 	if bv.Slice(23, 16).AsULong() != 0xad {
 		t.Errorf("incorrect BV")
+		return
 	}
 	if bv.Slice(32, 24).AsULong() != 0xde {
 		t.Errorf("incorrect BV")
+		return
 	}
 }
 
@@ -99,6 +111,7 @@ func TestAShr(t *testing.T) {
 
 	if bv.AsLong() != -1 {
 		t.Errorf("incorrect BV")
+		return
 	}
 
 	bv = gosmt.MakeBVConst(-2, 32)
@@ -106,6 +119,7 @@ func TestAShr(t *testing.T) {
 
 	if bv.AsLong() != -1 {
 		t.Errorf("incorrect BV")
+		return
 	}
 }
 
@@ -115,10 +129,12 @@ func TestNeg(t *testing.T) {
 	bv.Neg()
 	if bv.AsLong() != 42 {
 		t.Errorf("incorrect BV")
+		return
 	}
 	bv.Neg()
 	if bv.AsLong() != -42 {
 		t.Errorf("incorrect BV")
+		return
 	}
 }
 
@@ -130,26 +146,31 @@ func TestCmp(t *testing.T) {
 	v, err := bv1.SGt(bv2)
 	if err != nil || !v.Value {
 		t.Errorf("[%s s> %s = %s] incorrect SGt result", bv1, bv2, v)
+		return
 	}
 
 	v, err = bv1.SGe(bv2)
 	if err != nil || !v.Value {
 		t.Errorf("[%s s>= %s = %s] incorrect SGe result", bv1, bv2, v)
+		return
 	}
 
 	v, err = bv1.SLt(bv2)
 	if err != nil || v.Value {
 		t.Errorf("[%s s< %s = %s] incorrect SLt result", bv1, bv2, v)
+		return
 	}
 
 	v, err = bv1.SLe(bv2)
 	if err != nil || v.Value {
 		t.Errorf("[%s s<= %s = %s] incorrect SLe result", bv1, bv2, v)
+		return
 	}
 
 	v, err = bv1.Ult(bv3)
 	if err != nil || v.Value {
 		t.Errorf("[%s u< %s = %s] incorrect Ult result", bv1, bv2, v)
+		return
 	}
 }
 
@@ -160,11 +181,26 @@ func TestDiv(t *testing.T) {
 	resSdiv.SDiv(bv2)
 	if resSdiv.AsLong() != -3 {
 		t.Error("invalid division")
+		return
 	}
 
 	resUdiv := bv1.Copy()
 	resUdiv.UDiv(bv2)
 	if resUdiv.AsULong() != 0x55555552 {
 		t.Error("invalid division")
+		return
+	}
+}
+
+func TestAsBuffer(t *testing.T) {
+	bv := gosmt.MakeBVConst(0xabad, 16)
+	bytes := bv.AsBuffer()
+	if len(bytes) != 2 {
+		t.Error("invalid size")
+		return
+	}
+	if bytes[0] != 0xab && bytes[1] != 0xad {
+		t.Error("invalid content")
+		return
 	}
 }
