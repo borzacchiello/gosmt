@@ -161,11 +161,11 @@ func (s *z3backend) convert(e internalExpr, cache map[uintptr]z3.Value, symbols 
 		result = res
 	case TY_ZEXT:
 		e := e.(*internalBVExprExtend)
-		child := s.convert(e, cache, symbols).(z3.BV)
+		child := s.convert(e.child.e, cache, symbols).(z3.BV)
 		result = child.ZeroExtend(int(e.n))
 	case TY_SEXT:
 		e := e.(*internalBVExprExtend)
-		child := s.convert(e, cache, symbols).(z3.BV)
+		child := s.convert(e.child.e, cache, symbols).(z3.BV)
 		result = child.SignExtend(int(e.n))
 	case TY_ITE:
 		e := e.(*internalBVExprITE)
@@ -175,11 +175,11 @@ func (s *z3backend) convert(e internalExpr, cache map[uintptr]z3.Value, symbols 
 		result = guard.IfThenElse(iftrue, iffalse)
 	case TY_NOT:
 		e := e.(*internalBVExprUnArithmetic)
-		child := s.convert(e, cache, symbols).(z3.BV)
+		child := s.convert(e.child.e, cache, symbols).(z3.BV)
 		result = child.Not()
 	case TY_NEG:
 		e := e.(*internalBVExprUnArithmetic)
-		child := s.convert(e, cache, symbols).(z3.BV)
+		child := s.convert(e.child.e, cache, symbols).(z3.BV)
 		result = child.Neg()
 	case TY_SHL:
 		e := e.(*internalBVExprBinArithmetic)

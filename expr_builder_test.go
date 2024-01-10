@@ -335,7 +335,7 @@ func TestAddConstProp1(t *testing.T) {
 		e, _ = eb.Add(e, eb.BVV(1, 32))
 	}
 
-	if e.String() != "a + 0x64" {
+	if e.String() != "a + 0x64" && e.String() != "0x64 + a" {
 		t.Error("unable to constant propagate on Add")
 		return
 	}
