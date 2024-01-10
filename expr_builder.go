@@ -311,16 +311,6 @@ func (eb *ExprBuilder) Add(lhs, rhs *BVExprPtr) (*BVExprPtr, error) {
 		return nil, fmt.Errorf("different sizes")
 	}
 
-	// Constant propagation
-	if lhs.IsConst() && rhs.IsConst() {
-		c1, _ := lhs.GetConst()
-		c2, _ := rhs.GetConst()
-		if err := c2.Add(c1); err != nil {
-			return nil, err
-		}
-		return eb.getOrCreateBV(mkinternalBVVFromConst(*c1)), nil
-	}
-
 	// Remove zeroes
 	if lhs.IsZero() {
 		return rhs, nil
@@ -768,7 +758,7 @@ func (eb *ExprBuilder) Extract(e *BVExprPtr, high, low uint) (*BVExprPtr, error)
 	if e.Kind() == TY_EXTRACT {
 		eInt := e.e.(*internalBVExprExtract)
 		newLow := low + eInt.low
-		newHigh := high + eInt.high
+		newHigh := high + eInt.low
 		ex, err := mkinternalBVExprExtract(eInt.child, newHigh, newLow)
 		if err != nil {
 			return nil, err
@@ -1573,4 +1563,22 @@ func (eb *ExprBuilder) BoolOr(lhs, rhs *BoolExprPtr) (*BoolExprPtr, error) {
 		return nil, err
 	}
 	return eb.getOrCreateBool(ex), nil
+}
+
+func (eb *ExprBuilder) BVToBool(e *BVExprPtr) (*BoolExprPtr, error) {
+	if e.Kind() == TY_ITE {
+		eInt := e.getInternal().(*internalBVExprITE)
+		if eInt.iffalse.IsConst() && eInt.iftrue.IsConst() {
+			fConst, _ := eInt.iffalse.GetConst()
+			tConst, _ := eInt.iftrue.GetConst()
+			if tConst.value.Cmp(zero) > 0 && fConst.IsZero() {
+				return eInt.cond, nil
+			}
+		}
+	}
+	return eb.UGt(e, eb.BVV(0, e.Size()))
+}
+
+func (eb *ExprBuilder) BoolToBV(guard *BoolExprPtr) (*BVExprPtr, error) {
+	return eb.ITE(guard, eb.BVV(1, 8), eb.BVV(0, 8))
 }
