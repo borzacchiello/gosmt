@@ -233,8 +233,11 @@ func (s *Solver) Eval(bv *BVExprPtr) *BVConst {
 		return bvEvalInt.Value.Copy()
 	}
 
-	pi := s.pi(bv)
-	res := s.backend.evalUpto(bv, pi, 1)
+	// TODO: We are using our model to partially evaluate the expression, and
+	//       ask the backend to evaluate only the partial expression.
+	//       Keep an eye on this approach, I am not 100% sure it is correct.
+	pi := s.pi(bvEval)
+	res := s.backend.evalUpto(bvEval.(*BVExprPtr), pi, 1)
 	if len(res) == 0 {
 		return nil
 	}
