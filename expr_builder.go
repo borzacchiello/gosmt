@@ -199,8 +199,8 @@ func flattenOrAddArithmeticArg(e *BVExprPtr, ty int, children []*BVExprPtr) []*B
 	return children
 }
 
-func removeOneIf(exprs []*BVExprPtr, cmpFun func(*BVExprPtr, *BVExprPtr) bool) []*BVExprPtr {
-	exprsPruned := make([]*BVExprPtr, 0)
+func removeOneIf[E ExprPtr](exprs []E, cmpFun func(E, E) bool) []E {
+	exprsPruned := make([]E, 0)
 	for i := 0; i < len(exprs); i++ {
 		shouldRemove := false
 		for j := i + 1; j < len(exprs); j++ {
@@ -217,9 +217,9 @@ func removeOneIf(exprs []*BVExprPtr, cmpFun func(*BVExprPtr, *BVExprPtr) bool) [
 	return exprsPruned
 }
 
-func removeBothIf(exprs []*BVExprPtr, cmpFun func(*BVExprPtr, *BVExprPtr) bool) []*BVExprPtr {
+func removeBothIf[E ExprPtr](exprs []E, cmpFun func(E, E) bool) []E {
 	removed := make(map[int]bool, 0)
-	exprsPruned := make([]*BVExprPtr, 0)
+	exprsPruned := make([]E, 0)
 	for i := 0; i < len(exprs); i++ {
 		if _, ok := removed[i]; ok {
 			continue
@@ -1516,6 +1516,10 @@ func (eb *ExprBuilder) BoolAnd(lhs, rhs *BoolExprPtr) (*BoolExprPtr, error) {
 	} else {
 		children = append(children, rhs)
 	}
+	if len(children) > 2 {
+		children = removeOneIf(
+			children, func(bp1, bp2 *BoolExprPtr) bool { return bp1.Id() == bp2.Id() })
+	}
 
 	sort.Slice(children[:], func(i, j int) bool { return children[i].Id() < children[j].Id() })
 	ex, err := mkinternalBoolExprAnd(children)
@@ -1555,6 +1559,10 @@ func (eb *ExprBuilder) BoolOr(lhs, rhs *BoolExprPtr) (*BoolExprPtr, error) {
 		children = append(children, rhsInner.children...)
 	} else {
 		children = append(children, rhs)
+	}
+	if len(children) > 2 {
+		children = removeOneIf(
+			children, func(bp1, bp2 *BoolExprPtr) bool { return bp1.Id() == bp2.Id() })
 	}
 
 	sort.Slice(children[:], func(i, j int) bool { return children[i].Id() < children[j].Id() })
