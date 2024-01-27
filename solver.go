@@ -167,6 +167,14 @@ func (s *Solver) pi(e ExprPtr) *BoolExprPtr {
 }
 
 func (s *Solver) checkSatCurrentModel(q *BoolExprPtr) int {
+	if q.IsConst() {
+		qVal, _ := q.GetConst()
+		if qVal {
+			return RESULT_SAT
+		}
+		return RESULT_UNSAT
+	}
+
 	evalQ := s.eb.eval(q, s.model)
 	if evalQ.getInternal().kind() == TY_BOOL_CONST {
 		evalQInt := evalQ.getInternal().(*internalBoolVal)
