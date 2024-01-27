@@ -917,7 +917,7 @@ func (e *internalBoolUnArithmetic) shallowEq(other internalBoolExpr) bool {
 		return false
 	}
 	oe := other.(*internalBoolUnArithmetic)
-	return e.child.e.rawPtr() != oe.child.e.rawPtr()
+	return e.child.e.rawPtr() == oe.child.e.rawPtr()
 }
 
 func (e *internalBoolUnArithmetic) isLeaf() bool {
