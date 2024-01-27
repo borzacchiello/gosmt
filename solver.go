@@ -173,7 +173,6 @@ func (s *Solver) checkSatCurrentModel(q *BoolExprPtr) int {
 		if evalQInt.Value.Value {
 			return RESULT_SAT
 		}
-		return RESULT_UNSAT
 	}
 	return RESULT_UNKNOWN
 }
