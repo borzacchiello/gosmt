@@ -240,16 +240,37 @@ func (s *Solver) Eval(bv *BVExprPtr) *BVConst {
 		return bvEvalInt.Value.Copy()
 	}
 
-	// TODO: We are using our model to partially evaluate the expression, and
-	//       ask the backend to evaluate only the partial expression.
-	//       Keep an eye on this approach, I am not 100% sure it is correct.
-	pi := s.pi(bvEval)
-	res := s.backend.evalUpto(bvEval.(*BVExprPtr), pi, 1)
+	pi := s.pi(bv)
+	res := s.backend.evalUpto(bv, pi, 1)
 	if len(res) == 0 {
 		return nil
 	}
 	s.model = s.backend.model()
 	return res[0]
+}
+
+func (s *Solver) EvalList(bvs []*BVExprPtr) []*BVConst {
+	if len(bvs) == 0 {
+		return make([]*BVConst, 0)
+	}
+
+	joint := bvs[0]
+	for _, e := range bvs[1:] {
+		var err error
+		joint, err = s.eb.Concat(e, joint)
+		if err != nil {
+			panic(err)
+		}
+	}
+
+	jointVal := s.Eval(joint)
+	pieces := make([]*BVConst, 0)
+	accumulator := uint(0)
+	for i := 0; i < len(bvs); i++ {
+		pieces = append(pieces, jointVal.Slice(accumulator+bvs[i].Size()-1, accumulator))
+		accumulator += bvs[i].Size()
+	}
+	return pieces
 }
 
 func (s *Solver) EvalUpto(bv *BVExprPtr, n int) []*BVConst {
