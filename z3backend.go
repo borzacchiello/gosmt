@@ -77,10 +77,10 @@ func (s *z3backend) model() map[string]*BVConst {
 
 	res := make(map[string]*BVConst)
 	for _, sym := range s.lastSymbols {
-		v := m.Eval(sym, false).(z3.BV)
+		v := m.Eval(sym, true).(z3.BV)
 		c, err := convertZ3Const(v)
 		if err != nil {
-			panic("unable to create constant")
+			panic("unable to create constant [" + err.Error() + "]")
 		}
 		res[sym.String()] = c
 	}
